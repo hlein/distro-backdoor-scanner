@@ -124,7 +124,7 @@ do_dirs()
     s/^[^!-~ ]+//;
     s/[^!-~ ]+$//;
     # Armor any non-ascii
-    s/([^!-~ ])/sprintf("\x%02s",unpack("C",$1))/eg;
+    s/([^!-~ ])/sprintf("\\x%02s",unpack("C",$1))/eg;
     print "$ARGV $. $_\n";
   };
   # At the end of each file, reset $. and count the file as done
