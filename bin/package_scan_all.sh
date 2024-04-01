@@ -45,7 +45,7 @@ do_dirs()
   # Note: perl -n mode eats trailing spaces in filenames;
   # trying to escape by rewriting ARGV in BEGIN does not work,
   # so we expect handfuls of failures opening perfectly good paths.
-  BEGIN { $processed=0; };
+  BEGIN { $files_done=0; };
   if
    (
     # Patterns based loosely on indicators in known-trojaned xz-utils -
@@ -70,7 +70,7 @@ do_dirs()
     # https://gynvael.coldwind.pl/?lang=en&id=782
     | head\s+ -c.*head\s+ -c.*head\s+ -c
     | \# \{ [3-5] \} \[\[:alnum:\]\] \{ [3-6] \} \#\{ [3-5] \} \$
-    | eval\s+ \$[a-z]+\s* \|\s* tail\s+ -c 
+    | eval\s+ \$[a-z]+\s* \|\s* tail\s+ -c
     | \#{2}s* [Hh]ello\s* \#{2}
     | \#{2}s* [Ww]orld\s* \#{2}
     # Stage1 substitution cipher implemented in tr
@@ -100,7 +100,7 @@ do_dirs()
     (
      # One suspicious commit short-circuited cmake logic by entering a "."
      # in a line by itself in a CMakeLists.txt file; do we see that elsewhere?
-     $ARGV =~ /CMakeLists.txt$/ and 
+     $ARGV =~ /CMakeLists.txt$/ and
      m{
       ^ \. \s* $
      }x
@@ -111,6 +111,8 @@ do_dirs()
      # for others that match the observed pattern but are otherwise rare.
      /(?:^|['\''"\x0\s])([_A-Za-z0-9]{12,18})=([_A-Za-z0-9]{12,18})(?:$|['\''"\x0\s])/ &&
 	 lc($1) ne lc($2) &&
+	 $1 !~ /$2/ &&
+	 $2 !~ /$1/ &&
 	 $1 !~ /^(?:[_A-Z]+|[_a-z]+|[0-9]+)$/ &&
 	 $2 !~ /^(?:[_A-Z]+|[_a-z]+|[0-9]+)$/ &&
 	 $1 !~ /(?:_[^_]*){3}/ &&
@@ -128,11 +130,11 @@ do_dirs()
     print "$ARGV $. $_\n";
   };
   # At the end of each file, reset $. and count the file as done
-  close ARGV if (eof and ++$processed);
+  close ARGV if (eof and ++$files_done);
   if (eof)
   {
     close ARGV;
-    $processed++;
+    $files_done++;
     # Do not enable this, very loud and noticably slower
     print "###     $$ finished $ARGV\n" if $ENV{DEBUG};
   }
@@ -140,7 +142,7 @@ do_dirs()
   {
     # Log our heredity so post-processing can regroup if needed
     print "###   grandchild $::ENV{GRANDPARENT} -> " . getppid() .
-        " -> $$ processed " . scalar(@ARGV) . " dirs, $processed files\n";
+        " -> $$ processed $files_done files\n";
   }
   '
 }
