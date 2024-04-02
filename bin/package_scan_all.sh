@@ -43,7 +43,10 @@ case "$OS_ID" in
 
   gentoo)
     JOBS=$(sed -E -n 's/^MAKEOPTS="[^"#]*-j ?([0-9]+).*/\1/p' /etc/portage/make.conf 2>/dev/null)
-    UNPACK_DIR="/var/tmp/portage/"
+    UNPACK_DIR="${PORTAGE_TMPDIR:-/var/tmp/portage/}"
+    # We want to get the 'real' PORTAGE_TMPDIR, as PORTAGE_TMPDIR has confusing
+    # semantics (PORTAGE_TMPDIR=/var/tmp -> stuff goes into /var/tmp/portage).
+    UNPACK_DIR="${UNPACK_DIR%%/portage}/portage"
 
     make_dir_list()
     {
