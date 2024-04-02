@@ -29,7 +29,7 @@ case "$OS_ID" in
 
   debian|devuan|ubuntu)
     # XXX: is there an equivalent of MAKE_OPTS that sets a -j factor?
-    JOBS=$(egrep '^processor.*: [0-9]+$' /proc/cpuinfo | wc -l)
+    JOBS=$(grep -E '^processor.*: [0-9]+$' /proc/cpuinfo | wc -l)
     UNPACK_DIR="/var/packages/"
 
     make_dir_list()
