@@ -46,7 +46,7 @@ case "$OS_ID" in
     UNPACK_DIR="${PORTAGE_TMPDIR:-/var/tmp/portage/}"
     # We want to get the 'real' PORTAGE_TMPDIR, as PORTAGE_TMPDIR has confusing
     # semantics (PORTAGE_TMPDIR=/var/tmp -> stuff goes into /var/tmp/portage).
-    UNPACK_DIR="${UNPACK_DIR%%/portage}/portage"
+    UNPACK_DIR="${UNPACK_DIR%%/portage/}/portage/"
 
     make_dir_list()
     {
