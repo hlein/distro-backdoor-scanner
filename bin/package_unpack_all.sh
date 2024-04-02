@@ -59,8 +59,7 @@ case "$OS_ID" in
   gentoo)
     COMMANDS+="ebuild portageq"
     JOBS=$(sed -E -n 's/^MAKEOPTS="[^"#]*-j ?([0-9]+).*/\1/p' /etc/portage/make.conf 2>/dev/null)
-    # XXX: We should ask portage rather than trying to guess/discover
-    for D in /usr/portage/ /var/db/repos/gentoo/ ; do
+    for D in $(portageq get_repo_path "${EROOT:-/}" gentoo) /usr/portage/ /var/db/repos/gentoo/ ; do
       test -d "$D" && PACKAGE_DIR="$D" && break
     done
     test -n "$PACKAGE_DIR" || die "Could not find package dir"
