@@ -119,7 +119,8 @@ echo "### Processing $TOT packages in $JOBS parallel fetch+unpack jobs"
 while IFS= read -r PKG ; do
   # Bail out if our target filesystem(s) are filling
   for FILESYSTEM in "$PACKAGE_DIR" "$UNPACK_DIR" ; do
-    PCT=$(df "$FILESYSTEM" | awk -F'[ %]+' '/^(\/|tmpfs)/{print $5}')
+    PCT=$(df "$FILESYSTEM" | awk -F'[ %]+' '/[0-9]%/{print $5}')
+    echo "$PCT" | grep -q -E '^[0-9]+$' || die "Unable to get '$FILESYSTEM' full %, unsafe to continue"
     test "$PCT" -lt 90 || die "${FILESYSTEM} filesystem at ${PCT}% full, refusing to continue"
   done
   make_pkg_get_cmd
