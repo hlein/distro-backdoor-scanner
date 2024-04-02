@@ -63,7 +63,7 @@ case "$OS_ID" in
       test -d "$D" && PACKAGE_DIR="$D" && break
     done
     test -n "$PACKAGE_DIR" || die "Could not find package dir"
-    UNPACK_DIR="/var/tmp/portage/"
+    UNPACK_DIR="${PORTAGE_TMPDIR:-/var/tmp/portage/}"
 
     if [ "$DOWNLOAD_ONLY" = "1" ]; then
       EBUILD_CMD=fetch
