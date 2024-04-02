@@ -11,21 +11,57 @@ die()
 
 SCAN_LOG=~/parallel_scan.log
 PKG_LIST=~/package_list
+COMMANDS="parallel perl xargs"
 BATCH_SIZE=50
 BATCH_NUM=0
 
-for COMMAND in parallel perl xargs ; do
+test -f /etc/os-release || die "Required /etc/os-release not found"
+
+# Various locations, commands, etc. differ by distro
+
+OS_ID=$(sed -n -E 's/^ID="?([^ "]+)"? *$/\1/p' /etc/os-release 2>/dev/null)
+
+case "$OS_ID" in
+
+  "")
+    die "Could not extract an ID= line from /etc/os-release"
+    ;;
+
+  debian|devuan|ubuntu)
+    # XXX: is there an equivalent of MAKE_OPTS that sets a -j factor?
+    JOBS=$(egrep '^processor.*: [0-9]+$' /proc/cpuinfo | wc -l)
+    UNPACK_DIR="/var/packages/"
+
+    make_dir_list()
+    {
+      # Debian package source trees are simply packagename/
+      IFS=$'\n' DIRS=( $(find "${UNPACK_DIR}" -maxdepth 1 -type d -print) )
+      # Scan a single package (XXX: hardcoded; should be an arg or env var)
+      ##IFS=$'\n' DIRS=( $(find "${UNPACK_DIR}"xz-utils-5.6.0 -maxdepth 0 -type d -print) )
+    }
+    ;;
+
+  gentoo)
+    JOBS=$(sed -E -n 's/^MAKEOPTS="[^"#]*-j ?([0-9]+).*/\1/p' /etc/portage/make.conf 2>/dev/null)
+    UNPACK_DIR="/var/tmp/portage/"
+
+    make_dir_list()
+    {
+      # Gentoo package source trees have the form category/packagename-ver/work/*
+      IFS=$'\n' DIRS=( $(find "${UNPACK_DIR}" -mindepth 3 -maxdepth 3 -type d -name work -print) )
+      # Scan a single package (XXX: hardcoded; should be an arg or env var)
+      ##IFS=$'\n' DIRS=( $(find "${UNPACK_DIR}"app-arch/xz-utils-5.6.1 -mindepth 1 -maxdepth 1 -type d -name work -print) )
+    }
+    ;;
+  *)
+    die "Unsupported OS '$OS_ID'"
+    ;;
+esac
+
+for COMMAND in $COMMANDS ; do
   command -v ${COMMAND} >/dev/null || die "'${COMMAND}' not found in PATH"
 done
 
-# Use the same scaling as make.conf, or 4 if unset
-JOBS=$(sed -E -n 's/^MAKEOPTS="[^"#]*-j ?([0-9]+).*/\1/p' /etc/portage/make.conf 2>/dev/null)
-JOBS="${JOBS:-4}"
-# Systems that end up i/o bound should scale down JOBS
-##let JOBS=$JOBS/2
-
-# XXX: We should ask portage rather than trying to guess/discover
-UNPACK_DIR="/var/tmp/portage/"
 test -d "$UNPACK_DIR" || die "Unpack target '$UNPACK_DIR' does not exist"
 
 cd "$UNPACK_DIR" || die "Could not cd '$UNPACK_DIR'"
@@ -38,7 +74,7 @@ test -s "$PKG_LIST" || die "package list '$PKG_LIST' is empty"
 do_dirs()
 {
   export GRANDPARENT=$$
-  # XXX: Can inject a -name argument for testing; should be an arg or env var)
+  # XXX: Can inject a -name argument for testing; should be an arg or env var
   NAMEARG=''
   ##NAMEARG='-name CMakeLists.txt'
   find "$@" -type f $NAMEARG -print0 | xargs -0 perl -ne '
@@ -148,14 +184,13 @@ do_dirs()
 export -f do_dirs
 
 PKGS=$(wc -l "$PKG_LIST" | cut -d\  -f1)
-# Gentoo package source trees have the form category/packagename-ver/work/*
-IFS=$'\n' DIRS=( $(find "${UNPACK_DIR}" -mindepth 3 -maxdepth 3 -type d -name work -print) )
-# Scan a single package (XXX: hardcoded; should be an arg or env var)
-##IFS=$'\n' DIRS=( $(find "${UNPACK_DIR}"app-arch/xz-utils-5.6.1 -mindepth 1 -maxdepth 1 -type d -name work -print) )
+
+# Populate DIRS (distro-specific)
+make_dir_list
 
 # XXX: we should track paths that have been scanned so we can resume
 # without redundant re-scans. Either keep a list and filter against it,
-# or touch state files one layer up from each .../work/ dir.
+# or touch state files a layer up?
 
 export DIR_COUNT=${#DIRS[@]}
 BATCHES=$(( ($DIR_COUNT + $BATCH_SIZE - 1) / $BATCH_SIZE))
