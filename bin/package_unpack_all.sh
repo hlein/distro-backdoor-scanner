@@ -75,7 +75,7 @@ case "$OS_ID" in
     {
       # List the highest version of each package that is eligible
       # (skip non-keyworded/masked packages; skip older when newer exists)
-      portageq all_best_visible /
+      portageq all_best_visible / | sed -E '/^acct-(user|group)\//d'
     }
 
     make_pkg_get_cmd()
