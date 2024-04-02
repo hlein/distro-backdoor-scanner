@@ -117,7 +117,7 @@ fi
 COUNT=0
 TOT=$(wc -l "$PKG_LIST")
 echo "### Processing $TOT packages in $JOBS parallel fetch+unpack jobs"
-for PKG in $(cat "$PKG_LIST") ; do
+while IFS= read -r PKG ; do
   # Bail out if our target filesystem(s) are filling
   for FILESYSTEM in "$PACKAGE_DIR" "$UNPACK_DIR" ; do
     PCT=$(df "$FILESYSTEM" | awk -F'[ %]+' '/^\//{print $5}')
@@ -125,4 +125,4 @@ for PKG in $(cat "$PKG_LIST") ; do
   done
   make_pkg_get_cmd
   let COUNT=$COUNT+1
-done | parallel -j${JOBS} --joblog +${UNPACK_LOG}
+done <"$PKG_LIST" | parallel -j${JOBS} --joblog +${UNPACK_LOG}
