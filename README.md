@@ -9,4 +9,4 @@ was added to xz-utils.
 Distros supported:
 - Gentoo Linux: Works
 - Rocky Linux: Todo
-- Debian Linux: Todo
+- Debian/Devuan/Ubuntu Linux: Works
