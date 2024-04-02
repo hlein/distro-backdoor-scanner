@@ -70,7 +70,7 @@ cd "$UNPACK_DIR" || die "Could not cd '$UNPACK_DIR'"
 test -f "$PKG_LIST" || die "package list '$PKG_LIST' does not exist"
 test -s "$PKG_LIST" || die "package list '$PKG_LIST' is empty"
 
-# Funcation that parallel will kick off to do the work on batches of dirs
+# Function that parallel will kick off to do the work on batches of dirs
 do_dirs()
 {
   export GRANDPARENT=$$
