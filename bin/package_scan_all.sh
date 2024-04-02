@@ -35,9 +35,9 @@ case "$OS_ID" in
     make_dir_list()
     {
       # Debian package source trees are simply packagename/
-      IFS=$'\n' DIRS=( $(find "${UNPACK_DIR}" -maxdepth 1 -type d -print) )
+      mapfile -d '' DIRS < <(find "${UNPACK_DIR}" -maxdepth 1 -type d -print0)
       # Scan a single package (XXX: hardcoded; should be an arg or env var)
-      ##IFS=$'\n' DIRS=( $(find "${UNPACK_DIR}"xz-utils-5.6.0 -maxdepth 0 -type d -print) )
+      ##mapfile -d '' DIRS < <(find "${UNPACK_DIR}"xz-utils-5.6.0 -maxdepth 0 -type d -print0)
     }
     ;;
 
@@ -51,9 +51,9 @@ case "$OS_ID" in
     make_dir_list()
     {
       # Gentoo package source trees have the form category/packagename-ver/work/*
-      IFS=$'\n' DIRS=( $(find "${UNPACK_DIR}" -mindepth 3 -maxdepth 3 -type d -name work -print) )
+      mapfile -d '' DIRS < <(find "${UNPACK_DIR}" -mindepth 3 -maxdepth 3 -type d -name work -print0)
       # Scan a single package (XXX: hardcoded; should be an arg or env var)
-      ##IFS=$'\n' DIRS=( $(find "${UNPACK_DIR}"app-arch/xz-utils-5.6.1 -mindepth 1 -maxdepth 1 -type d -name work -print) )
+      ##mapfile -d '' DIRS < <(find "${UNPACK_DIR}"app-arch/xz-utils-5.6.1 -mindepth 1 -maxdepth 1 -type d -name work -print0)
     }
     ;;
   *)
