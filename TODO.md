@@ -14,3 +14,7 @@
 
 - Investigate packages that do not unpack successfully (per-distro)
 
+- Smartly (re)scan different phases - after fresh unpack, then after
+  applying distro patches
+
+- Convert this list to GH issues... maybe
