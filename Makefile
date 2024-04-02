@@ -9,13 +9,21 @@ BIN_FILES=\
 install:
 	@mkdir -p $(BIN_DIR) && \
 	 for BIN_FILE in $(BIN_FILES) ; do \
-	   install -m 755 $${BIN_FILE} $(BIN_DIR) ; \
+	   if [ -f $${BIN_FILE} ]; then \
+	     install -m 755 $${BIN_FILE} $(BIN_DIR) ; \
+	   else \
+	     install -m 755 bin/$${BIN_FILE} $(BIN_DIR) ; \
+	   fi ; \
 	 done
 
 diff:
 	@for A in $(BIN_FILES) ; do \
 	   if [ -f $(BIN_DIR)/$${A} ]; then \
-	     diff -u $(BIN_DIR)/$${A} $${A} ; \
+	     if [ -f $${A} ]; then \
+	       diff -u $(BIN_DIR)/$${A} $${A} ; \
+	     else \
+	       diff -u $(BIN_DIR)/$${A} bin/$${A} ; \
+	     fi ; \
 	   else \
 	     echo "File $${A} is new" ; \
 	   fi ; \
