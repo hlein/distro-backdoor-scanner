@@ -139,6 +139,7 @@ do_dirs()
     (
      # One suspicious commit short-circuited cmake logic by entering a "."
      # in a line by itself in a CMakeLists.txt file; do we see that elsewhere?
+     # https://git.tukaani.org/?p=xz.git;a=commit;h=328c52da8a2bbb81307644efdb58db2c422d9ba7
      $ARGV =~ /CMakeLists.txt$/ and
      m{
       ^ \. \s* $
