@@ -15,8 +15,17 @@ UNPACK_LOG=~/parallel_unpack.log
 PKG_LIST=~/package_list
 COMMANDS="parallel "
 DOWNLOAD_ONLY=0
+# Only used on rpm-based distros, but keep this up here
+# for visibility since it's a tunable knob.
+RPM_LIST=~/rpm_list
 
 test -f /etc/os-release || die "Required /etc/os-release not found"
+
+# On most OSs, this is a noop
+pre_parallel_hook()
+{
+  :
+}
 
 # Various locations, commands, etc. differ by distro
 
@@ -50,7 +59,7 @@ case "$OS_ID" in
       apt-cache search . | cut -d\  -f1
     }
 
-    make_pkg_get_cmd()
+    make_pkg_cmd()
     {
       echo "echo '###   unpack $COUNT/$TOT $PKG' && apt-get source $DOWNLOAD_FLAG '$PKG'"
     }
@@ -78,7 +87,7 @@ case "$OS_ID" in
       portageq all_best_visible / | sed -E '/^acct-(user|group)\//d'
     }
 
-    make_pkg_get_cmd()
+    make_pkg_cmd()
     {
       # Skip packages that come from overlays instead of ::gentoo
       if ! test -d "${PACKAGE_DIR}/$(qatom -C -F '%{CATEGORY}/%{PN}' "${PKG}")" ; then
@@ -89,13 +98,63 @@ case "$OS_ID" in
     }
     ;;
 
+  # XXX: only actually tested on Rocky Linux yet
+  centos|fedora|rhel|rocky)
+    # %prep stage can require various development tools; best to do:
+    # dnf groupinstall "Development Tools"
+    # dnf install javapackages-tools
+    COMMANDS+="build-jar-repository cpio gcc git reposync rpm2cpio rpmbuild tar"
+    # XXX: is there an equivalent of MAKE_OPTS that sets a -j factor?
+    JOBS=$(grep -E '^processor.*: [0-9]+$' /proc/cpuinfo | wc -l)
+    PACKAGE_DIR="/var/repo/dist/"
+    UNPACK_DIR="/var/repo/"
+    ENABLE_REPO='*-source'
+
+    make_pkg_list()
+    {
+      dnf list --disablerepo='*' --enablerepo="${ENABLE_REPO}" --available | \
+          awk '/^(Last metadata|(Available) Packages)/{next}; /\.src/{print $1}'
+    }
+
+    make_pkg_cmd()
+    {
+      # Extract the package name from the path+RPM name
+      PNAME=$(rpm --queryformat "%{NAME}" -qp "${PKG}")
+      # We could/should rpm2cpio ... | cpio -i..., but then unpacking
+      # the .tar files inside would be our job, reading from .spec.
+      # For now just skip the intermediate step. Run the %prep stage
+      # which unpacks tars, applies patches, conditionally other things.
+      echo "echo '###   unpack $COUNT/$TOT $PNAME' && mkdir -p ${UNPACK_DIR}SOURCES/ && rpmbuild --define '_topdir ${UNPACK_DIR}' --quiet -rp '${PKG}'"
+    }
+
+    # We cannot really combine fetch+unpack, and reposync(1) is not
+    # multiprocess (and if it was we'd need to worry about beating up
+    # the mirrors we talked to, anyway). So, call it once before entering
+    # the parallel unpacks. Unfortunately because it is a oneshot we can't
+    # monitor df between fetches.
+    pre_parallel_hook()
+    {
+      # First, fetch every available distfile
+      reposync --disablerepo='*' --enablerepo="${ENABLE_REPO}" --source || \
+          die "reposync failed"
+      # Second, build a list of RPMs and use that instead of $PKG_LIST.
+      # Ignore the bird, follow the river.
+      find "${PACKAGE_DIR}${ENABLE_REPO}/Packages/" -type f -name \*.src.rpm >"${RPM_LIST}" || \
+           die "find RPMs failed"
+      PKG_LIST="$RPM_LIST"
+      # Prepare the target directory structure, just once.
+      mkdir -p ${UNPACK_DIR}{BUILD,BUILDROOT,RPMS,SOURCES,SRPMS}
+    }
+    ;;
+
   *)
     die "Unsupported OS '$OS_ID'"
     ;;
 esac
 
 export -f make_pkg_list
-export -f make_pkg_get_cmd
+export -f make_pkg_cmd
+export -f pre_parallel_hook
 
 # Mirrors will hate you fetching too many in parallel
 test "$DOWNLOAD_ONLY" = "1" && test "$JOBS" -gt 4 && JOBS=4
@@ -113,6 +172,8 @@ if ! test -s "$PKG_LIST" ; then
   make_pkg_list >"$PKG_LIST"
 fi
 
+pre_parallel_hook
+
 COUNT=0
 TOT=$(wc -l "$PKG_LIST")
 echo "### Processing $TOT packages in $JOBS parallel fetch+unpack jobs"
@@ -123,6 +184,6 @@ while IFS= read -r PKG ; do
     echo "$PCT" | grep -q -E '^[0-9]+$' || die "Unable to get '$FILESYSTEM' full %, unsafe to continue"
     test "$PCT" -lt 90 || die "${FILESYSTEM} filesystem at ${PCT}% full, refusing to continue"
   done
-  make_pkg_get_cmd
+  make_pkg_cmd
   let COUNT=$COUNT+1
 done <"$PKG_LIST" | parallel -j${JOBS} --joblog +${UNPACK_LOG}
