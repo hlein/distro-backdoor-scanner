@@ -23,5 +23,6 @@ There need to be more search patterns, among other things; see
 
 Distros supported:
 - Gentoo Linux: Works
-- Rocky Linux: Todo
+- Rocky/RHEL/CentOS Linux: Works
 - Debian/Devuan/Ubuntu Linux: Works
+- EndeavourOS/Arch: Todo

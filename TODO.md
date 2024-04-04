@@ -1,6 +1,7 @@
 # Current TODOs
 
-- Add support for an RPM-based distro (Rocky Linux)
+- Add more distro families (ironically tracked in [README](README.md)
+  instead of here)
 
 - Better annotation/attribution of existing patterns
 
@@ -15,6 +16,6 @@
 - Investigate packages that do not unpack successfully (per-distro)
 
 - Smartly (re)scan different phases - after fresh unpack, then after
-  applying distro patches
+  applying distro patches; this will differ by distro
 
 - Convert this list to GH issues... maybe
