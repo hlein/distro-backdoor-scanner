@@ -56,6 +56,22 @@ case "$OS_ID" in
       ##mapfile -d '' DIRS < <(find "${UNPACK_DIR}"app-arch/xz-utils-5.6.1 -mindepth 1 -maxdepth 1 -type d -name work -print0)
     }
     ;;
+
+  # XXX: only actually tested on Rocky Linux yet
+  centos|fedora|rhel|rocky)
+    # XXX: is there an equivalent of MAKE_OPTS that sets a -j factor?
+    JOBS=$(grep -E '^processor.*: [0-9]+$' /proc/cpuinfo | wc -l)
+    UNPACK_DIR="/var/repo/BUILD/"
+
+    make_dir_list()
+    {
+      # Unpacked RPMs have a particular fan-out structure per repo
+      mapfile -d '' DIRS < <(find "${UNPACK_DIR}" -maxdepth 1 -type d -print0)
+      # Scan a single package (XXX: hardcoded; should be an arg or env var)
+      ##mapfile -d '' DIRS < <(find "${UNPACK_DIR}/xz-5.6.1" -maxdepth 0 -type d -print0)
+    }
+    ;;
+
   *)
     die "Unsupported OS '$OS_ID'"
     ;;
