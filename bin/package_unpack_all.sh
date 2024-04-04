@@ -107,7 +107,7 @@ case "$OS_ID" in
   centos|fedora|rhel|rocky)
     # %prep stage can require various development tools; best to do:
     # dnf groupinstall "Development Tools"
-    # dnf install javapackages-tools
+    # dnf install javapackages-tools jq
     COMMANDS+="build-jar-repository cpio gcc git reposync rpm2cpio rpmbuild tar"
     # XXX: is there an equivalent of MAKE_OPTS that sets a -j factor?
     JOBS=$(grep -E '^processor.*: [0-9]+$' /proc/cpuinfo | wc -l)
