@@ -5,9 +5,14 @@
 # - Debian/Devuan/Ubuntu
 # - Gentoo
 
-die()
+warn()
 {
   echo "$@" >&2
+}
+
+die()
+{
+  warn "$@"
   exit 1
 }
 
@@ -136,10 +141,10 @@ case "$OS_ID" in
     {
       # First, fetch every available distfile
       reposync --disablerepo='*' --enablerepo="${ENABLE_REPO}" --source || \
-          die "reposync failed"
+          warn "reposync errored, attempting to continue"
       # Second, build a list of RPMs and use that instead of $PKG_LIST.
       # Ignore the bird, follow the river.
-      find "${PACKAGE_DIR}${ENABLE_REPO}/Packages/" -type f -name \*.src.rpm >"${RPM_LIST}" || \
+      find ${PACKAGE_DIR}${ENABLE_REPO}/Packages/ -type f -name \*.src.rpm >"${RPM_LIST}" || \
            die "find RPMs failed"
       PKG_LIST="$RPM_LIST"
       # Prepare the target directory structure, just once.
