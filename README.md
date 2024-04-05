@@ -18,6 +18,16 @@ Running over the unpacked source trees of ~19k Gentoo packages and
 of hits), digestable by a human. So far the only confirmed malicious
 results are... from the backdoored `xz-utils` versions.
 
+Also, compare the output of the backdoored `xz-utils` decompressing
+a large corpus of `.xz` files vs the output of an independent
+implementation, just in case of some fancy
+[injection](https://www.cs.cmu.edu/~rdriley/487/papers/Thompson_1984_ReflectionsonTrustingTrust.pdf)
+of malware into the output stream whenever a recognized block of
+tarred-up code is decompressed. Verrry unlikely to catch something,
+but easy to look for so why not. So far this has only caught minor
+bugs in other decompressors (upstream bugs will be filed, but not
+urgent).
+
 There need to be more search patterns, among other things; see
 [TODO](TODO.md).
 
@@ -25,4 +35,4 @@ Distros supported:
 - Gentoo Linux: Works
 - Rocky/RHEL/CentOS Linux: Works
 - Debian/Devuan/Ubuntu Linux: Works
-- EndeavourOS/Arch: Todo
+- EndeavourOS/Arch: Todo, PRs welcome
