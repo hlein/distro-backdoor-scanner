@@ -3,8 +3,9 @@ TARGETS := $(shell cat .targets 2>/dev/null)
 BIN_DIR=/usr/local/bin
 
 BIN_FILES=\
-	package_unpack_all.sh	\
+	package_decompcheck_all.sh	\
 	package_scan_all.sh	\
+	package_unpack_all.sh	\
 
 install:
 	@mkdir -p $(BIN_DIR) && \
