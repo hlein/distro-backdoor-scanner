@@ -1,9 +1,6 @@
 #!/bin/bash
 #
-# Unpack the latest eligible version of every package
-# Current OSs supported:
-# - Debian/Devuan/Ubuntu
-# - Gentoo
+# Unpack the latest valid version of every package
 
 warn()
 {
