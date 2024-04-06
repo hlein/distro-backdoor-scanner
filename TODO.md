@@ -24,4 +24,13 @@
   serial number; look into those mods. Work ongoing in
   [this branch](https://github.com/hlein/distro-backdoor-scanner/compare/master...thesamesam:m4)
 
+- Compare &amp; explore the differences between git-tagged versions
+  (retrievable as generated archives from e.g. GitHub) and Release
+  assets. The "Asset" tarball for a given version can differ from what
+  was tagged for that release, for what are perceived as good reasons.
+  That discrepancy was what allwed `xz-utils` Release assets to have
+  parts of the backdoor embedded that did not match what was in the
+  Git repo. So: how common is that? Can we bring some extra scrutiny
+  to the differences?
+
 - Convert this list to GH issues... maybe
