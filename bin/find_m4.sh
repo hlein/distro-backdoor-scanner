@@ -75,11 +75,12 @@ extract_serial()
 }
 
 # Initial creation of database.
-# Creates a table called `m4` with fields `name`, `serial`, and `checksum` (SHA256).
+# Creates a table called `m4` with fields `name`, `serial`, `checksum` (SHA256),
+# `repository` (name of git repo), `commit` (git commit in `repository`).
 create_db()
 {
   sqlite3 m4.db <<-EOF || die "SQLite DB creation failed"
-    CREATE table m4 (name TEXT, serial INTEGER, checksum TEXT);
+    CREATE table m4 (name TEXT, serial INTEGER, checksum TEXT, repository TEXT, gitcommit TEXT);
 EOF
 }
 
@@ -108,10 +109,13 @@ populate_db()
       continue
     fi
 
+    repository=$(git -C "$(dirname "${file}")" rev-parse --show-toplevel 2>/dev/null || cat "${file}.gitrepo")
+    commit=$(git -C "$(dirname "${file}")" rev-parse HEAD 2>/dev/null || cat "${file}.gitcommit")
+
     checksum=$(sha256sum "${file}" | cut -d' ' -f 1)
     queries+=(
-      "$(printf "INSERT INTO m4 (name, serial, checksum) VALUES ('%s', '%s', '%s');\n" \
-        "${filename}" "${serial}" "${checksum}")"
+      "$(printf "INSERT INTO m4 (name, serial, checksum, repository, gitcommit) VALUES ('%s', '%s', '%s', '%s', '%s');\n" \
+        "${filename}" "${serial}" "${checksum}" "${repository:-NULL}" "${commit:-NULL}")"
     )
 
     debug "[%s] Got serial %s with checksum %s\n" "${filename}" "${serial}" "${checksum}"

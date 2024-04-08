@@ -92,6 +92,9 @@ for dir in "${DIRS[@]}" ; do
     temp=$(mktemp -d)
     do_serial_check=1
     for file in "${files[@]}" ; do
+      echo "${dir}" > "${temp}"/${file##*/}.gitrepo
+      echo "${commit}" > "${temp}"/${file##*/}.gitcommit
+
       git -C "${dir}" cat-file -p "${commit}:${file}" > "${temp}"/${file##*/}
 
       # Don't bother calling bin/find_m4.sh if we didn't find any
