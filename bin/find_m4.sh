@@ -99,7 +99,7 @@ populate_db()
   local file filename
   for file in "${M4_FILES[@]}" ; do
     filename="${file##*/}"
-    [[ ${filename} == aclocal.m4 ]] && continue
+    [[ ${filename} == @(aclocal.m4|acinclude.m4|m4sugar.m4) ]] && continue
 
     serial=$(extract_serial "${file}")
     # XXX: What if it's a naughty .m4 file without a serial, as opposed to
@@ -134,7 +134,7 @@ compare_with_db()
   local delta absolute_delta
   for file in "${M4_FILES[@]}" ; do
     filename="${file##*/}"
-    [[ ${filename} == aclocal.m4 ]] && continue
+    [[ ${filename} == @(aclocal.m4|acinclude.m4|m4sugar.m4) ]] && continue
 
     serial=$(extract_serial "${file}")
     # XXX: What if it's a naughty .m4 file without a serial, as opposed to
