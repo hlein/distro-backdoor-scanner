@@ -53,7 +53,7 @@ for dir in "${DIRS[@]}" ; do
   [[ -d "${dir}" ]] || { die "Need to clone ${dir##*/}?"; }
   [[ -d "${dir}"/.git ]] || { echo "Skipping git repo ${dir##*/}, will handle in next loop."; continue; }
   # TODO: https://mywiki.wooledge.org/BashFAQ/028
-  MODE=0 bash bin/find_m4.sh "${dir}"
+  MODE=0 bash bin/find_m4.sh "${dir}" || exit 1
 done
 
 # Now go further and check out every commit touching M4 serial numbers.
@@ -106,5 +106,5 @@ for dir in "${DIRS[@]}" ; do
   done < <(git -C "${dir}" log --diff-filter=ACMR --date-order --reverse --format='| %ad %H' --name-status --date=iso-strict -- '*.m4')
 
   # TODO: https://mywiki.wooledge.org/BashFAQ/028
-  MODE=0 bash bin/find_m4.sh "${batch_dirs[@]}"
+  MODE=0 bash bin/find_m4.sh "${batch_dirs[@]}" || exit 1
 done
