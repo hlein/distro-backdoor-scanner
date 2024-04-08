@@ -102,9 +102,9 @@ for dir in "${DIRS[@]}" ; do
       fi
     done
 
-    # TODO: https://mywiki.wooledge.org/BashFAQ/028
     [[ ${do_serial_check} == 0 ]] && batch_dirs+=( "${temp}" )
   done < <(git -C "${dir}" log --diff-filter=ACMR --date-order --reverse --format='| %ad %H' --name-status --date=iso-strict -- '*.m4')
 
+  # TODO: https://mywiki.wooledge.org/BashFAQ/028
   MODE=0 bash bin/find_m4.sh "${batch_dirs[@]}"
 done
