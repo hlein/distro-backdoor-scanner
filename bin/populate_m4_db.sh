@@ -92,14 +92,15 @@ for dir in "${DIRS[@]}" ; do
     temp=$(mktemp -d)
     do_serial_check=1
     for file in "${files[@]}" ; do
-      echo "${dir}" > "${temp}"/${file##*/}.gitrepo
-      echo "${commit}" > "${temp}"/${file##*/}.gitcommit
+      filename=${file##*/}
+      echo "${dir}" > "${temp}"/${filename}.gitrepo
+      echo "${commit}" > "${temp}"/${filename}.gitcommit
 
-      git -C "${dir}" cat-file -p "${commit}:${file}" > "${temp}"/${file##*/}
+      git -C "${dir}" cat-file -p "${commit}:${file}" > "${temp}"/${filename}
 
       # Don't bother calling bin/find_m4.sh if we didn't find any
       # .m4 files with a serial number in this batch.
-      if [[ ${do_serial_check} == 1 ]] && grep -q "serial" "${temp}"/${file##*/} ; then
+      if [[ ${do_serial_check} == 1 ]] && grep -q "serial" "${temp}"/${filename} ; then
         # We found one which is good enough, so don't grep again.
         do_serial_check=0
       fi
