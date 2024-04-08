@@ -49,7 +49,7 @@ DIRS=(
     "/home/sjames/git/libtool"
 )
 
-for dir in "${DIRoooS[@]}" ; do
+for dir in "${DIRS[@]}" ; do
   [[ -d "${dir}" ]] || { die "Need to clone ${dir##*/}?"; }
   [[ -d "${dir}"/.git ]] || { echo "Skipping git repo ${dir##*/}, will handle in next loop."; continue; }
   # TODO: https://mywiki.wooledge.org/BashFAQ/028
