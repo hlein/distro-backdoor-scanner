@@ -51,6 +51,7 @@ extract_serial()
 {
   local file=$1
   local serial
+  local filename="${file##*/}"
 
   # https://www.gnu.org/software/automake/manual/html_node/Serials.html
   # We have to cope with:
@@ -58,8 +59,7 @@ extract_serial()
   # - '# serial 1234 b.m4'
   # TODO: handle decimal (below too)
   # TODO: pretty sure this can be optimized with sed
-  serial=$(grep -m 1 -Er '^#( )?serial.*[0-9+]' "${file}" | grep -Eo ' ([0-9]+)')
-  serial="${serial#* }"
+  serial=$(gawk 'match($0, /^#(.* )?serial ([[:digit:]]+).*$/, a) {print a[2]}' "${file}")
 
   if [[ -z ${serial} ]] ; then
     # Some (old) macros may use an invalid format: 'x.m4 serial n'
@@ -67,7 +67,7 @@ extract_serial()
     # TODO: pretty sure this can be optimized with sed
     # TODO: since that was fixed, there may be 2 valid checksums for each serial. How do we handle that
     # in the DB queries later on?
-    serial=$(grep -m 1 -Er '^#( )?([-a-zA-Z0-9]+.m4 )?serial.*[0-9+]' "${file}" | grep -Eo ' ([0-9]+)')
+    serial=$(grep -m 1 -Pr '#(.+ )?(${filename} )?serial (\d+).*$' "${file}")
     serial="${serial#* }"
   fi
 
