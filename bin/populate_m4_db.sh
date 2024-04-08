@@ -76,13 +76,14 @@ for dir in "${DIRS[@]}" ; do
     files=()
     # TODO: Do we really need the read/printf here?
     while read line ; do
+      fragment="${line##*[[:space:]]}"
       if [[ -z ${commit} ]] ; then
-        commit="${line##*[[:space:]]}"
+        commit="${fragment}"
         continue
       fi
 
       if [[ ${line} =~ \.m4$ ]] ; then
-        files+=( "${line##*[[:space:]]}" )
+        files+=( "${fragment}" )
         continue
       fi
     done < <(printf "%s\n" "${gunk}")
