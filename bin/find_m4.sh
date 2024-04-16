@@ -80,7 +80,7 @@ extract_serial()
 create_db()
 {
   sqlite3 m4.db <<-EOF || die "SQLite DB creation failed"
-    CREATE table m4 (name TEXT, serial INTEGER, checksum TEXT, repository TEXT, gitcommit TEXT);
+    CREATE table m4 (name TEXT, serial INTEGER, checksum TEXT, repository TEXT, gitcommit TEXT, gitpath TEXT);
 EOF
 }
 
@@ -114,8 +114,8 @@ populate_db()
 
     checksum=$(sha256sum "${file}" | cut -d' ' -f 1)
     queries+=(
-      "$(printf "INSERT INTO m4 (name, serial, checksum, repository, gitcommit) VALUES ('%s', '%s', '%s', '%s', '%s');\n" \
-        "${filename}" "${serial}" "${checksum}" "${repository:-NULL}" "${commit:-NULL}")"
+      "$(printf "INSERT INTO m4 (name, serial, checksum, repository, gitcommit, gitpath) VALUES ('%s', '%s', '%s', '%s', '%s', '%s');\n" \
+        "${filename}" "${serial}" "${checksum}" "${repository:-NULL}" "${commit:-NULL}" "${file:-NULL}")"
     )
 
     debug "[%s] Got serial %s with checksum %s\n" "${filename}" "${serial}" "${checksum}"
@@ -156,7 +156,7 @@ compare_with_db()
     # TODO: This could be optimized by preloading it into an assoc array
     # ... and save many repeated forks & even queries (to avoid looking up same macro repeatedly)
     query_result=$(sqlite3 m4.db <<-EOF || die "SQLite query failed"
-      $(printf "SELECT name,serial,checksum FROM m4 WHERE name='%s' LIMIT 1" "${filename}")
+      $(printf "SELECT name,serial,checksum,repository,gitcommit,gitpath FROM m4 WHERE name='%s' LIMIT 1" "${filename}")
 EOF
     )
 
@@ -210,6 +210,9 @@ EOF
     for line in "${query_result[@]}" ; do
       expected_serial=$(echo "${line}" | awk -F'|' '{print $2}')
       expected_checksum=$(echo "${line}" | awk -F'|' '{print $3}')
+      expected_repository=$(echo "${line}" | awk -F'|' '{print $4}')
+      expected_gitcommit=$(echo "${line}" | awk -F'|' '{print $5}')
+      expected_gitpath=$(echo "${line}" | awk -F'|' '{print $6}')
 
       debug "[%s] Checking candidate w/ expected_serial=%s, expected_checksum=%s\n" \
         "${filename}" "${expected_serial}" "${expected_checksum}"
@@ -219,6 +222,8 @@ EOF
         if [[ ${expected_checksum} != "${checksum}" ]] ; then
           BAD_MACROS+=( "${file}" )
 
+          common_stem=$(printf "%s\n%s\n" "${expected_gitpath}" "${file}" | rev | sed -e 'N;s/^\(.*\).*\n\1.*$/\1/' | rev)
+
           eerror "$(printf "Found mismatch in %s!\n"  "${filename}")"
           eindent
           eerror "$(printf "full path: %s\n" "${file}")"
@@ -226,6 +231,8 @@ EOF
             "${expected_serial}" "${serial}")"
           eerror "$(printf "expected_checksum=%s vs checksum=%s\n" \
             "${expected_checksum}" "${checksum}")"
+
+          ewarn "diff using: git diff --no-index <(git -C "${expected_repository}" show "${expected_gitcommit}":${common_stem#/}) "${file}""
           eoutdent
         fi
       fi
