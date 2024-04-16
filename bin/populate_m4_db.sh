@@ -49,11 +49,11 @@ DIRS=(
     "/home/sjames/git/libtool"
 )
 
-for dir in "${DIRoooS[@]}" ; do
+for dir in "${DIRS[@]}" ; do
   [[ -d "${dir}" ]] || { die "Need to clone ${dir##*/}?"; }
   [[ -d "${dir}"/.git ]] || { echo "Skipping git repo ${dir##*/}, will handle in next loop."; continue; }
   # TODO: https://mywiki.wooledge.org/BashFAQ/028
-  MODE=0 bash bin/find_m4.sh "${dir}"
+  MODE=0 bash bin/find_m4.sh "${dir}" || exit 1
 done
 
 # Now go further and check out every commit touching M4 serial numbers.
@@ -76,13 +76,14 @@ for dir in "${DIRS[@]}" ; do
     files=()
     # TODO: Do we really need the read/printf here?
     while read line ; do
+      fragment="${line##*[[:space:]]}"
       if [[ -z ${commit} ]] ; then
-        commit="${line##*[[:space:]]}"
+        commit="${fragment}"
         continue
       fi
 
       if [[ ${line} =~ \.m4$ ]] ; then
-        files+=( "${line##*[[:space:]]}" )
+        files+=( "${fragment}" )
         continue
       fi
     done < <(printf "%s\n" "${gunk}")
@@ -92,19 +93,23 @@ for dir in "${DIRS[@]}" ; do
     temp=$(mktemp -d)
     do_serial_check=1
     for file in "${files[@]}" ; do
-      git -C "${dir}" cat-file -p "${commit}:${file}" > "${temp}"/${file##*/}
+      filename=${file##*/}
+      echo "${dir}" > "${temp}"/${filename}.gitrepo
+      echo "${commit}" > "${temp}"/${filename}.gitcommit
+
+      git -C "${dir}" cat-file -p "${commit}:${file}" > "${temp}"/${filename}
 
       # Don't bother calling bin/find_m4.sh if we didn't find any
       # .m4 files with a serial number in this batch.
-      if [[ ${do_serial_check} == 1 ]] && grep -q "serial" "${temp}"/${file##*/} ; then
+      if [[ ${do_serial_check} == 1 ]] && grep -q "serial" "${temp}"/${filename} ; then
         # We found one which is good enough, so don't grep again.
         do_serial_check=0
       fi
     done
 
-    # TODO: https://mywiki.wooledge.org/BashFAQ/028
     [[ ${do_serial_check} == 0 ]] && batch_dirs+=( "${temp}" )
   done < <(git -C "${dir}" log --diff-filter=ACMR --date-order --reverse --format='| %ad %H' --name-status --date=iso-strict -- '*.m4')
 
-  MODE=0 bash bin/find_m4.sh "${batch_dirs[@]}"
+  # TODO: https://mywiki.wooledge.org/BashFAQ/028
+  MODE=0 bash bin/find_m4.sh "${batch_dirs[@]}" || exit 1
 done

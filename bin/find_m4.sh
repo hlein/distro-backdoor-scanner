@@ -51,6 +51,7 @@ extract_serial()
 {
   local file=$1
   local serial
+  local filename="${file##*/}"
 
   # https://www.gnu.org/software/automake/manual/html_node/Serials.html
   # We have to cope with:
@@ -58,8 +59,7 @@ extract_serial()
   # - '# serial 1234 b.m4'
   # TODO: handle decimal (below too)
   # TODO: pretty sure this can be optimized with sed
-  serial=$(grep -m 1 -Er '^#( )?serial.*[0-9+]' "${file}" | grep -Eo ' ([0-9]+)')
-  serial="${serial#* }"
+  serial=$(gawk 'match($0, /^#(.* )?serial ([[:digit:]]+).*$/, a) {print a[2]}' "${file}")
 
   if [[ -z ${serial} ]] ; then
     # Some (old) macros may use an invalid format: 'x.m4 serial n'
@@ -67,7 +67,7 @@ extract_serial()
     # TODO: pretty sure this can be optimized with sed
     # TODO: since that was fixed, there may be 2 valid checksums for each serial. How do we handle that
     # in the DB queries later on?
-    serial=$(grep -m 1 -Er '^#( )?([-a-zA-Z0-9]+.m4 )?serial.*[0-9+]' "${file}" | grep -Eo ' ([0-9]+)')
+    serial=$(grep -m 1 -Pr '#(.+ )?(${filename} )?serial (\d+).*$' "${file}")
     serial="${serial#* }"
   fi
 
@@ -75,11 +75,12 @@ extract_serial()
 }
 
 # Initial creation of database.
-# Creates a table called `m4` with fields `name`, `serial`, and `checksum` (SHA256).
+# Creates a table called `m4` with fields `name`, `serial`, `checksum` (SHA256),
+# `repository` (name of git repo), `commit` (git commit in `repository`).
 create_db()
 {
   sqlite3 m4.db <<-EOF || die "SQLite DB creation failed"
-    CREATE table m4 (name TEXT, serial INTEGER, checksum TEXT);
+    CREATE table m4 (name TEXT, serial INTEGER, checksum TEXT, repository TEXT, gitcommit TEXT, gitpath TEXT);
 EOF
 }
 
@@ -99,7 +100,7 @@ populate_db()
   local file filename
   for file in "${M4_FILES[@]}" ; do
     filename="${file##*/}"
-    [[ ${filename} == aclocal.m4 ]] && continue
+    [[ ${filename} == @(aclocal.m4|acinclude.m4|m4sugar.m4) ]] && continue
 
     serial=$(extract_serial "${file}")
     # XXX: What if it's a naughty .m4 file without a serial, as opposed to
@@ -108,10 +109,13 @@ populate_db()
       continue
     fi
 
+    repository=$(git -C "$(dirname "${file}")" rev-parse --show-toplevel 2>/dev/null || cat "${file}.gitrepo")
+    commit=$(git -C "$(dirname "${file}")" rev-parse HEAD 2>/dev/null || cat "${file}.gitcommit")
+
     checksum=$(sha256sum "${file}" | cut -d' ' -f 1)
     queries+=(
-      "$(printf "INSERT INTO m4 (name, serial, checksum) VALUES ('%s', '%s', '%s');\n" \
-        "${filename}" "${serial}" "${checksum}")"
+      "$(printf "INSERT INTO m4 (name, serial, checksum, repository, gitcommit, gitpath) VALUES ('%s', '%s', '%s', '%s', '%s', '%s');\n" \
+        "${filename}" "${serial}" "${checksum}" "${repository:-NULL}" "${commit:-NULL}" "${file:-NULL}")"
     )
 
     debug "[%s] Got serial %s with checksum %s\n" "${filename}" "${serial}" "${checksum}"
@@ -134,7 +138,7 @@ compare_with_db()
   local delta absolute_delta
   for file in "${M4_FILES[@]}" ; do
     filename="${file##*/}"
-    [[ ${filename} == aclocal.m4 ]] && continue
+    [[ ${filename} == @(aclocal.m4|acinclude.m4|m4sugar.m4) ]] && continue
 
     serial=$(extract_serial "${file}")
     # XXX: What if it's a naughty .m4 file without a serial, as opposed to
@@ -152,7 +156,7 @@ compare_with_db()
     # TODO: This could be optimized by preloading it into an assoc array
     # ... and save many repeated forks & even queries (to avoid looking up same macro repeatedly)
     query_result=$(sqlite3 m4.db <<-EOF || die "SQLite query failed"
-      $(printf "SELECT name,serial,checksum FROM m4 WHERE name='%s' LIMIT 1" "${filename}")
+      $(printf "SELECT name,serial,checksum,repository,gitcommit,gitpath FROM m4 WHERE name='%s' LIMIT 1" "${filename}")
 EOF
     )
 
@@ -206,6 +210,9 @@ EOF
     for line in "${query_result[@]}" ; do
       expected_serial=$(echo "${line}" | awk -F'|' '{print $2}')
       expected_checksum=$(echo "${line}" | awk -F'|' '{print $3}')
+      expected_repository=$(echo "${line}" | awk -F'|' '{print $4}')
+      expected_gitcommit=$(echo "${line}" | awk -F'|' '{print $5}')
+      expected_gitpath=$(echo "${line}" | awk -F'|' '{print $6}')
 
       debug "[%s] Checking candidate w/ expected_serial=%s, expected_checksum=%s\n" \
         "${filename}" "${expected_serial}" "${expected_checksum}"
@@ -215,6 +222,8 @@ EOF
         if [[ ${expected_checksum} != "${checksum}" ]] ; then
           BAD_MACROS+=( "${file}" )
 
+          common_stem=$(printf "%s\n%s\n" "${expected_gitpath}" "${file}" | rev | sed -e 'N;s/^\(.*\).*\n\1.*$/\1/' | rev)
+
           eerror "$(printf "Found mismatch in %s!\n"  "${filename}")"
           eindent
           eerror "$(printf "full path: %s\n" "${file}")"
@@ -222,6 +231,8 @@ EOF
             "${expected_serial}" "${serial}")"
           eerror "$(printf "expected_checksum=%s vs checksum=%s\n" \
             "${expected_checksum}" "${checksum}")"
+
+          ewarn "diff using: git diff --no-index <(git -C "${expected_repository}" show "${expected_gitcommit}":${common_stem#/}) "${file}""
           eoutdent
         fi
       fi
