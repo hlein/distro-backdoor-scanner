@@ -258,7 +258,7 @@ EOF
           eerror "$(printf "expected_checksum=%s vs checksum=%s\n" \
             "${expected_checksum}" "${checksum}")"
 
-          ewarn "diff using: git diff --no-index <(git -C "${expected_repository}" show "${expected_gitcommit}":${common_stem}) "${file}""
+          ewarn "diff using:\n     git diff --no-index <(git -C "${expected_repository}" show "${expected_gitcommit}":${common_stem}) "${file}""
           eoutdent
         fi
       fi
