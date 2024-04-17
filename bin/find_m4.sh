@@ -205,7 +205,10 @@ EOF
         if [[ ${expected_checksum} != "${checksum}" ]] ; then
           BAD_MACROS+=( "${file}" )
 
+          # If we have /path/to/cache-a/foo/bar.baz /zoo/wee/cache-b/foo/bar.baz,
+          # we want to extract foo/baz.baz.
           common_stem=$(printf "%s\n%s\n" "${expected_gitpath}" "${file}" | rev | sed -e 'N;s/^\(.*\).*\n\1.*$/\1/' | rev)
+          common_stem=${common_stem#/}
 
           eerror "$(printf "Found mismatch in %s!\n"  "${filename}")"
           eindent
@@ -215,7 +218,7 @@ EOF
           eerror "$(printf "expected_checksum=%s vs checksum=%s\n" \
             "${expected_checksum}" "${checksum}")"
 
-          ewarn "diff using: git diff --no-index <(git -C "${expected_repository}" show "${expected_gitcommit}":${common_stem#/}) "${file}""
+          ewarn "diff using: git diff --no-index <(git -C "${expected_repository}" show "${expected_gitcommit}":${common_stem}) "${file}""
           eoutdent
         fi
       fi
