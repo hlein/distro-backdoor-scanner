@@ -6,30 +6,11 @@
 
 . /lib/gentoo/functions.sh || {
   # Stubs for non-Gentoo systems
-  eerror()
-  {
-    echo "$@"
-  }
-
-  ewarn()
-  {
-    echo "$@"
-  }
-
-  einfo()
-  {
-    echo "$@"
-  }
-
-  eindent()
-  {
-    :;
-  }
-
-  eoutdent()
-  {
-    :;
-  }
+  eerror() { echo "$@"; }
+  ewarn() { echo "$@"; }
+  einfo() { echo "$@"; }
+  eindent() { :; }
+  eoutdent() { :; }
 }
 
 debug()
@@ -263,7 +244,12 @@ BAD_MACROS=()
 BAD_SERIAL_MACROS=()
 
 if [[ ${MODE} == 0 ]] ; then
-  einfo "Running in create mode, scraping $*"
+  if [ "$#" -le 3 ]; then
+    label="$*"
+  else
+    label="$1 $2 ...[$#]"
+  fi
+  einfo "Running in create mode, scraping $label"
 
   if [[ -f m4.db ]] ; then
     debug "Using existing database...\n"
