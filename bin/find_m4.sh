@@ -209,6 +209,12 @@ EOF
           # we want to extract foo/baz.baz.
           common_stem=$(printf "%s\n%s\n" "${expected_gitpath}" "${file}" | rev | sed -e 'N;s/^\(.*\).*\n\1.*$/\1/' | rev)
           common_stem=${common_stem#/}
+          # Sometimes, we might have completely disjoint paths apart from the filename.
+          # In that case, take the repo path and just append the path to it relative to the repo.
+          if [[ ${common_stem} == "${filename}" ]] ; then
+            common_stem=${expected_gitpath##"${expected_repository}"}
+            common_stem=${common_stem#/}
+          fi
 
           eerror "$(printf "Found mismatch in %s!\n"  "${filename}")"
           eindent
