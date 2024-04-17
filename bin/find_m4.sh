@@ -10,6 +10,8 @@ die()
   exit 1
 }
 
+COMMANDS=( cut find gawk git grep sha256sum sqlite3 )
+
 # Various locations, commands, etc. differ by distro
 
 OS_ID=$(sed -n -E 's/^ID="?([^ "]+)"? *$/\1/p' /etc/os-release 2>/dev/null)
@@ -73,9 +75,8 @@ extract_serial()
   # - '# serial 1234 b.m4'
   # TODO: handle decimal (below too)
   # TODO: pretty sure this can be optimized with sed(?) (less important now it uses gawk)
-  # TODO: can we optimise out the head -n1 and just do that natively with gawk?
   # TODO: missed opportunity to diagnose multiple serial lines here, see https://lists.gnu.org/archive/html/bug-gnulib/2024-04/msg00266.html
-  serial=$(gawk 'match($0, /^#(.* )?serial ([[:digit:]]+).*$/, a) {print a[2]}' "${file}" | head -n1)
+  serial=$(gawk 'match($0, /^#(.* )?serial ([[:digit:]]+).*$/, a) {print a[2]; exit;}' "${file}")
 
   if [[ -z ${serial} ]] ; then
     # Some (old) macros may use an invalid format: 'x.m4 serial n'
@@ -225,11 +226,11 @@ EOF
     # or indeed serial number.
     local line expected_serial expected_checksum
     for line in "${query_result[@]}" ; do
-      expected_serial=$(echo "${line}" | awk -F'|' '{print $2}')
-      expected_checksum=$(echo "${line}" | awk -F'|' '{print $3}')
-      expected_repository=$(echo "${line}" | awk -F'|' '{print $4}')
-      expected_gitcommit=$(echo "${line}" | awk -F'|' '{print $5}')
-      expected_gitpath=$(echo "${line}" | awk -F'|' '{print $6}')
+      expected_serial=$(echo "${line}" | gawk -F'|' '{print $2}')
+      expected_checksum=$(echo "${line}" | gawk -F'|' '{print $3}')
+      expected_repository=$(echo "${line}" | gawk -F'|' '{print $4}')
+      expected_gitcommit=$(echo "${line}" | gawk -F'|' '{print $5}')
+      expected_gitpath=$(echo "${line}" | gawk -F'|' '{print $6}')
 
       debug "[%s] Checking candidate w/ expected_serial=%s, expected_checksum=%s\n" \
         "${filename}" "${expected_serial}" "${expected_checksum}"
@@ -267,8 +268,6 @@ EOF
     debug "[%s] Got %s\n" "${filename}" "${query_result}"
   done
 }
-
-COMMANDS=( sha256sum sqlite3 grep awk cut find )
 
 for COMMAND in "${COMMANDS[@]}" ; do
   command -v "${COMMAND}" >/dev/null || die "'${COMMAND}' not found in PATH"
