@@ -4,6 +4,45 @@
 # TODO: Should we add where we saw each macro too?
 # TODO: Should we add fuzziness for copyright years, newlines (at EOF)?
 
+die()
+{
+  echo "$@" >&2
+  exit 1
+}
+
+# Various locations, commands, etc. differ by distro
+
+OS_ID=$(sed -n -E 's/^ID="?([^ "]+)"? *$/\1/p' /etc/os-release 2>/dev/null)
+
+case "$OS_ID" in
+
+  "")
+    die "Could not extract an ID= line from /etc/os-release"
+    ;;
+
+  debian|devuan|ubuntu)
+    UNPACK_DIR="/var/packages/"
+    ;;
+
+  gentoo)
+    UNPACK_DIR="${PORTAGE_TMPDIR:-/var/tmp/portage/}"
+    # We want to get the 'real' PORTAGE_TMPDIR, as PORTAGE_TMPDIR has confusing
+    # semantics (PORTAGE_TMPDIR=/var/tmp -> stuff goes into /var/tmp/portage).
+    UNPACK_DIR="${UNPACK_DIR%%/portage/}/portage/"
+    ;;
+
+  centos|fedora|rhel|rocky)
+    UNPACK_DIR="/var/repo/BUILD/"
+    ;;
+
+  *)
+    die "Unsupported OS '$OS_ID'"
+    ;;
+esac
+
+# Use the distro-specific unpack dir unless told otherwise
+M4_DIR="${M4_DIR:-${UNPACK_DIR}}"
+
 . /lib/gentoo/functions.sh || {
   # Stubs for non-Gentoo systems
   eerror() { echo "$@"; }
@@ -19,12 +58,6 @@ debug()
   # Deliberately treating this as a 'printf with debug check' function
   # shellcheck disable=2059
   printf "$@"
-}
-
-die()
-{
-  echo "$@" >&2
-  exit 1
 }
 
 # Extract M4 serial number from an M4 macro.
@@ -280,8 +313,8 @@ else
   [[ -f m4.db ]] || die "error: running in DB comparison mode but m4.db not found!"
 
   # Which of these files are new?
-  einfo "Finding macros to compare..."
-  find_macros "/tmp/hell"
+  einfo "Finding macros in '${M4_DIR}' to compare..."
+  find_macros "$M4_DIR"
 
   einfo "Comparing macros with database..."
   compare_with_db
