@@ -94,11 +94,12 @@ populate_db()
 
     repository=$(git -C "$(dirname "${file}")" rev-parse --show-toplevel 2>/dev/null || cat "${file}.gitrepo")
     commit=$(git -C "$(dirname "${file}")" rev-parse HEAD 2>/dev/null || cat "${file}.gitcommit")
+    path=$(cat "${file}".gitpath 2>/dev/null || echo "${file}")
 
     checksum=$(sha256sum "${file}" | cut -d' ' -f 1)
     queries+=(
       "$(printf "INSERT INTO m4 (name, serial, checksum, repository, gitcommit, gitpath) VALUES ('%s', '%s', '%s', '%s', '%s', '%s');\n" \
-        "${filename}" "${serial}" "${checksum}" "${repository:-NULL}" "${commit:-NULL}" "${file:-NULL}")"
+        "${filename}" "${serial}" "${checksum}" "${repository:-NULL}" "${commit:-NULL}" "${path:-NULL}")"
     )
 
     debug "[%s] Got serial %s with checksum %s\n" "${filename}" "${serial}" "${checksum}"

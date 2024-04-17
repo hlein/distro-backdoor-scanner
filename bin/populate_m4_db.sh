@@ -114,6 +114,7 @@ for dir in "${DIRS[@]}" ; do
       filename=${file##*/}
       echo "${dir}" > "${temp}"/${filename}.gitrepo
       echo "${commit}" > "${temp}"/${filename}.gitcommit
+      echo "${file#${dir}}" > "${temp}"/${filename}.gitpath
 
       git -C "${dir}" cat-file -p "${commit}:${file}" > "${temp}"/${filename}
 
