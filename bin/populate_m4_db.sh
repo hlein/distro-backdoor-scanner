@@ -1,36 +1,34 @@
 #!/bin/bash
-# Complements find_m4.sh which only knows how to scrape
-# .m4 files from given directories.
 #
-# This script, otoh, handles the git mangling to go through
-# and find useful serial numbers for us to put in the DB.
+# For a set of git repos harvest every iteration of every .m4 file
+# and feed them to find_m4.sh to record their filename, serialno,
+# checksum, and other metadata.
+#
+# These will then be used as a corpus of "known good" .m4 files,
+# against which arbitrary repos' .m4 files can be compared.
+
+# Override w/env vars
+GNU_REPOS_TOPDIR="${GNU_REPOS_TOPDIR:-${HOME}/gnu-repos/}"
+GNU_REPOS_TOPURL="${GNU_REPOS_TOPURL:-https://git.savannah.gnu.org/r/}"
+
+# GNU autotools project repos we will harvest .m4 files from.
+# TODO: Add support for specifying arbitrary repos/dirs to include
+GNU_REPOS=(
+	"autoconf"
+	"autoconf-archive"
+	"automake"
+	"gettext"
+	"gnulib"
+	"libtool"
+)
 
 . /lib/gentoo/functions.sh || {
   # Stubs for non-Gentoo systems
-  eerror()
-  {
-    echo "$@"
-  }
-
-  ewarn()
-  {
-    echo "$@"
-  }
-
-  einfo()
-  {
-    echo "$@"
-  }
-
-  eindent()
-  {
-    :;
-  }
-
-  eoutdent()
-  {
-    :;
-  }
+  eerror() { echo "$@"; }
+  ewarn() { echo "$@"; }
+  einfo() { echo "$@"; }
+  eindent() { :; }
+  eoutdent() { :; }
 }
 
 die()
@@ -39,21 +37,41 @@ die()
   exit 1
 }
 
-# Basic set of directories (git checkouts of core GNU autotools projects)
-DIRS=(
-    "/home/sjames/git/autoconf"
-    "/home/sjames/git/autoconf-archive"
-    "/home/sjames/git/automake"
-    "/home/sjames/git/gettext"
-    "/home/sjames/git/gnulib"
-    "/home/sjames/git/libtool"
-)
+if command -v find_m4.sh >/dev/null ; then
+  FINDM4=find_m4.sh
+elif [ -x "${BASH_SOURCE%/*}/find_m4.sh" ]; then
+  FINDM4="${BASH_SOURCE%/*}/find_m4.sh"
+else
+  die "Could not find find_m4.sh in PATH or '${BASH_SOURCE%/*}/'"
+fi
+
+GNU_REPOS_TOPDIR="${GNU_REPOS_TOPDIR%/}/"
+[[ -d $GNU_REPOS_TOPDIR ]] || die "GNU_REPOS_TOPDIR directory '$GNU_REPOS_TOPDIR' does not exist"
+cd $GNU_REPOS_TOPDIR || die "chdir GNU_REPOS_TOPDIR directory '$GNU_REPOS_TOPDIR' failed"
+
+GNU_REPOS_TOPURL="${GNU_REPOS_TOPURL%/}/"
+
+# Warn about cloning repos only the first time
+warn_clone_abort=1
+
+DIRS=()
+for gnu_repo in "${GNU_REPOS[@]}" ; do
+  gnu_repo=${gnu_repo%.git}
+  if [[ ! -d "${GNU_REPOS_TOPDIR}/${gnu_repo}" ]]; then
+    einfo "Repo '$gnu_repo' not found under '${GNU_REPOS_TOPDIR}', cloning"
+    if [[ $warn_clone_abort = 1 ]]; then
+      ewarn "Hit ^C within 5 seconds to abort"
+      sleep 5
+    fi
+    warn_clone_abort=0
+    git clone ${GNU_REPOS_TOPURL}${gnu_repo}.git/ || die "Clone '${GNU_REPOS_TOPURL}${gnu_repo}.git' failed"
+  fi
+  DIRS+=( "${GNU_REPOS_TOPDIR}${gnu_repo}" )
+done
 
 for dir in "${DIRS[@]}" ; do
-  [[ -d "${dir}" ]] || { die "Need to clone ${dir##*/}?"; }
-  [[ -d "${dir}"/.git ]] || { echo "Skipping git repo ${dir##*/}, will handle in next loop."; continue; }
-  # TODO: https://mywiki.wooledge.org/BashFAQ/028
-  MODE=0 bash bin/find_m4.sh "${dir}" || exit 1
+  [[ -d "${dir}"/.git ]] && { einfo "Skipping git repo ${dir##*/}, will handle in next loop."; continue; }
+  MODE=0 $FINDM4 "${dir}" || exit 1
 done
 
 # Now go further and check out every commit touching M4 serial numbers.
@@ -99,7 +117,7 @@ for dir in "${DIRS[@]}" ; do
 
       git -C "${dir}" cat-file -p "${commit}:${file}" > "${temp}"/${filename}
 
-      # Don't bother calling bin/find_m4.sh if we didn't find any
+      # Don't bother calling find_m4.sh if we didn't find any
       # .m4 files with a serial number in this batch.
       if [[ ${do_serial_check} == 1 ]] && grep -q "serial" "${temp}"/${filename} ; then
         # We found one which is good enough, so don't grep again.
@@ -110,6 +128,5 @@ for dir in "${DIRS[@]}" ; do
     [[ ${do_serial_check} == 0 ]] && batch_dirs+=( "${temp}" )
   done < <(git -C "${dir}" log --diff-filter=ACMR --date-order --reverse --format='| %ad %H' --name-status --date=iso-strict -- '*.m4')
 
-  # TODO: https://mywiki.wooledge.org/BashFAQ/028
-  MODE=0 bash bin/find_m4.sh "${batch_dirs[@]}" || exit 1
+  MODE=0 $FINDM4 "${batch_dirs[@]}" || exit 1
 done
