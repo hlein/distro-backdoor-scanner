@@ -35,5 +35,6 @@ diff:
 
 dist:
 	@for TARGET in $(TARGETS) ; do \
+	  echo DEST: $${TARGET} ; \
 	  rsync -aP Makefile bin/* $${TARGET}: ; \
 	done
