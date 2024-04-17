@@ -50,7 +50,7 @@ extract_serial()
     # TODO: pretty sure this can be optimized with sed
     # TODO: since that was fixed, there may be 2 valid checksums for each serial. How do we handle that
     # in the DB queries later on?
-    serial=$(grep -m 1 -Pr '#(.+ )?(${filename} )?serial (\d+).*$' "${file}")
+    serial=$(grep -m 1 -Pr "#(.+ )?(${filename} )?serial (\d+).*$" "${file}")
     serial="${serial#* }"
   fi
 
