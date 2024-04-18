@@ -213,7 +213,12 @@ compare_with_db()
     checksum=$(sha256sum "${file}" | cut -d' ' -f 1)
     stripped_checksum=$(gawk '/changecom/{exit 1}; { gsub(/#.*/,""); gsub(/(^| )dnl.*/,""); print}' "${file}" 2>/dev/null \
         | sha256sum - \
-        | cut -d' ' -f1)
+        | cut -d' ' -f1 ; \
+        exit ${PIPESTATUS[0]})
+    ret=$?
+    if [[ ${ret} -eq 1 ]] ; then
+      stripped_checksum="${checksum}"
+    fi
 
     debug "\n"
     debug "[%s] Got serial %s with checksum %s and stripped checksum %s\n" \
