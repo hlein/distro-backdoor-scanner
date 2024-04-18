@@ -374,10 +374,10 @@ EOF
         # We know this serial, so we can assert what its checksum ought to be.
         case "${expected_checksumtype}" in
           0)
-            [[ ${expected_checksum} == "${stripped_checksum}" ]] && checksum_ok=1 || checksum_ok=0
+            [[ ${expected_checksum} == "${checksum}" ]] && checksum_ok=1 || checksum_ok=0
             ;;
           1)
-            [[ ${expected_checksum} == "${checksum}" ]] && checksum_ok=1 || checksum_ok=0
+            [[ ${expected_checksum} == "${stripped_checksum}" ]] && checksum_ok=1 || checksum_ok=0
             ;;
           *)
             die "Unexpected checksumtype: ${expected_checksumtype}!"
