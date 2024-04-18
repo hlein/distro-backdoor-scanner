@@ -390,6 +390,9 @@ EOF
 
           ewarn "diff using:\n     git diff --no-index <(git -C "${expected_repository}" show "${expected_gitcommit}":${common_stem}) "${file}""
           eoutdent
+
+          # No point in checking this one against other checksums
+          break
         fi
       fi
     done
