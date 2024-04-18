@@ -160,17 +160,17 @@ populate_db()
     checksum_type=1
     stripped_contents=$(gawk '/changecom/{exit 1}; { gsub(/#.*/,""); gsub(/(^| )dnl.*/,""); print}' "${file}" 2>/dev/null)
     ret=$?
-    if [[ ${ret} -eq 1 ]] ; then
+    if [[ ${ret} == 0 ]] ; then
+      checksum=$(echo "${stripped_contents}" | sha256sum -)
+    elif [[ ${ret} == 1 ]] ; then
       # The file contained 'changecom', so we have to do the best we can.
       # https://www.gnu.org/software/m4/manual/html_node/Comments.html
       # https://www.gnu.org/software/m4/manual/html_node/Changecom.html
       # https://lists.gnu.org/archive/html/m4-discuss/2014-06/msg00000.html
-      checksum_type=0
-      checksum=$(echo "${stripped_contents}" | sha256sum -)
-    elif ! [[ ${ret} -eq 0 ]] ; then
-      eerror "Got error $? from gawk?"
-    else
       checksum=$(sha256sum "${file}")
+      checksum_type=0
+    else
+      eerror "Got error $? from gawk?"
     fi
 
     checksum=$(echo "${checksum}" | cut -d' ' -f 1)
