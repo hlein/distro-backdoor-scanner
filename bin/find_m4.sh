@@ -158,7 +158,7 @@ populate_db()
 
     # Get the file without any comments on a best-effort basis
     checksum_type=1
-    stripped_contents=$(gawk '/changecom/{exit 1}; { gsub(/#.*/,""); gsub(/^dnl.*/,""); print}' "${file}" 2>/dev/null)
+    stripped_contents=$(gawk '/changecom/{exit 1}; { gsub(/#.*/,""); gsub(/(^| )dnl.*/,""); print}' "${file}" 2>/dev/null)
     ret=$?
     if [[ ${ret} -eq 1 ]] ; then
       # The file contained 'changecom', so we have to do the best we can.
