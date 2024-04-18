@@ -158,22 +158,26 @@ populate_db()
 
     # Get the file without any comments on a best-effort basis
     checksum_type=1
-    stripped_contents=$(gawk '/changecom/{exit 1}; { gsub(/#.*/,""); gsub(/(^| )dnl.*/,""); print}' "${file}" 2>/dev/null)
+
+    stripped_checksum=$(gawk '/changecom/{exit 1}; { gsub(/#.*/,""); gsub(/(^| )dnl.*/,""); print}' "${file}" \
+        | sha256sum - \
+        | cut -d' ' -f1 ; \
+        exit ${PIPESTATUS[0]})
     ret=$?
+
     if [[ ${ret} == 0 ]] ; then
-      checksum=$(echo "${stripped_contents}" | sha256sum -)
+      checksum="${stripped_checksum}"
     elif [[ ${ret} == 1 ]] ; then
       # The file contained 'changecom', so we have to do the best we can.
       # https://www.gnu.org/software/m4/manual/html_node/Comments.html
       # https://www.gnu.org/software/m4/manual/html_node/Changecom.html
       # https://lists.gnu.org/archive/html/m4-discuss/2014-06/msg00000.html
-      checksum=$(sha256sum "${file}")
+      checksum=$(sha256sum "${file}" | cut -d' ' -f 1)
       checksum_type=0
     else
-      eerror "Got error $? from gawk?"
+      eerror "Got error ${ret} from gawk?"
     fi
 
-    checksum=$(echo "${checksum}" | cut -d' ' -f 1)
     queries+=(
       "$(printf "INSERT INTO \
         m4 (name, serial, checksum, checksumtype, repository, gitcommit, gitpath) \
