@@ -31,11 +31,22 @@ GNU_REPOS=(
   eoutdent() { :; }
 }
 
+cleanup()
+{
+  [[ ${#CLEAN_DIRS[@]} = 0 ]] && return
+  einfo "Cleaning up ${#CLEAN_DIRS[@]} tmpdirs..."
+  printf "%s\0" "${CLEAN_DIRS[@]}" | xargs -0 -I@ bash -c 'rm -f @/*.m4{,.gitcommit,.gitpath,.gitrepo} && rmdir @'
+  CLEAN_DIRS=()
+}
+
 die()
 {
   echo "$@" >&2
+  cleanup
   exit 1
 }
+
+COMMANDS=( git grep mktemp realpath )
 
 if command -v find_m4.sh >/dev/null ; then
   FINDM4=find_m4.sh
@@ -45,6 +56,13 @@ elif [ -x "${BASH_SOURCE%/*}/find_m4.sh" ]; then
 else
   die "Could not find find_m4.sh in PATH or '${BASH_SOURCE%/*}/'"
 fi
+
+for COMMAND in "${COMMANDS[@]}" ; do
+  command -v "${COMMAND}" >/dev/null || die "'${COMMAND}' not found in PATH"
+done
+
+# If TMPDIR is set, force it to be an absolute path
+[ -n "$TMPDIR" ] && TMPDIR=$(realpath "$TMPDIR")
 
 GNU_REPOS_TOPDIR="${GNU_REPOS_TOPDIR%/}/"
 [[ -d $GNU_REPOS_TOPDIR ]] || die "GNU_REPOS_TOPDIR directory '$GNU_REPOS_TOPDIR' does not exist"
@@ -70,21 +88,31 @@ for gnu_repo in "${GNU_REPOS[@]}" ; do
   DIRS+=( "${GNU_REPOS_TOPDIR}${gnu_repo}" )
 done
 
+einfo "Checking for regular directories to be processed..."
 for dir in "${DIRS[@]}" ; do
-  [[ -d "${dir}"/.git ]] && { einfo "Skipping git repo ${dir##*/}, will handle in next loop."; continue; }
+  [[ -d "${dir}"/.git ]] && continue
+  einfo "Processing .m4 files under ${dir##*/}..."
   MODE=0 $FINDM4 "${dir}" || exit 1
 done
 
+CLEAN_DIRS=()
+
+trap 'die' SIGINT
+
+einfo "Checking for git repos to be processed..."
 # Now go further and check out every commit touching M4 serial numbers.
 # TODO: Use \x00 delimiter
 for dir in "${DIRS[@]}" ; do
   [[ -d "${dir}/.git" ]] || continue
 
+  einfo "Processing all versions of all .m4 files in git repo ${dir##*/}..."
+
+  batch_dirs=()
+
   git -C "${dir}" fetch --all --tags || die "git fetch failed"
 
   # TODO: Could this be parallelized, or does git do locking that
   # would defeat it?
-  batch_dirs=()
   while read -d'|' gunk; do
     # Example text:
     # 1994-09-26T03:02:30+00:00 74cc3753fc2479e53045e952b3dcd908bbafef79
@@ -110,6 +138,7 @@ for dir in "${DIRS[@]}" ; do
     #einfo "Scraping ${dir##*/} at commit ${commit}"
 
     temp=$(mktemp -d)
+    CLEAN_DIRS+=( "${temp}" )
     do_serial_check=1
     for file in "${files[@]}" ; do
       filename=${file##*/}
@@ -130,5 +159,8 @@ for dir in "${DIRS[@]}" ; do
     [[ ${do_serial_check} == 0 ]] && batch_dirs+=( "${temp}" )
   done < <(git -C "${dir}" log --diff-filter=ACMR --date-order --reverse --format='| %ad %H' --name-status --date=iso-strict -- '*.m4')
 
-  MODE=0 $FINDM4 "${batch_dirs[@]}" || exit 1
+  MODE=0 $FINDM4 "${batch_dirs[@]}" || die
+
+  # remove all tempdirs created for this repo
+  cleanup
 done
