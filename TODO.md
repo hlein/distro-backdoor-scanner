@@ -33,4 +33,7 @@
   Git repo. So: how common is that? Can we bring some extra scrutiny
   to the differences?
 
+- Analyze pkgconf files?
+  See https://github.com/hlein/distro-backdoor-scanner/issues/7
+
 - Convert this list to GH issues... maybe
