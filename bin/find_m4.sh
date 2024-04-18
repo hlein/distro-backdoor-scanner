@@ -211,7 +211,7 @@ compare_with_db()
     fi
 
     checksum=$(sha256sum "${file}" | cut -d' ' -f 1)
-    stripped_checksum=$(gawk '/changecom/{exit 1}; { gsub(/#.*/,""); gsub(/^dnl.*/,""); print}' "${file}" 2>/dev/null \
+    stripped_checksum=$(gawk '/changecom/{exit 1}; { gsub(/#.*/,""); gsub(/(^| )dnl.*/,""); print}' "${file}" 2>/dev/null \
         | sha256sum - \
         | cut -d' ' -f1)
 
