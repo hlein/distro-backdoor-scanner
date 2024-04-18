@@ -315,6 +315,7 @@ EOF
     if [[ -n ${max_serial_seen_query} ]] ; then
       print_diff_cmd() {
         local cmd=$1
+        # TODO: replace these gawks with shell fu?
         expected_repository=$(echo "${max_serial_seen_query}" | gawk -F'|' '{print $6}')
         expected_gitcommit=$(echo "${max_serial_seen_query}" | gawk -F'|' '{print $7}')
         expected_gitpath=$(echo "${max_serial_seen_query}" | gawk -F'|' '{print $8}')
