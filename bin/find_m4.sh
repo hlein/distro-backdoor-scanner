@@ -304,14 +304,18 @@ EOF
     # like +20 is suspicious as they really want theirs to take priority...
     # TODO: Make this more intelligent?
     if [[ -n ${max_serial_seen_query} ]] ; then
-      max_serial_seen=$(echo "${max_serial_seen_query}" | gawk -F'|' '{print $3}')
-      expected_repository=$(echo "${max_serial_seen_query}" | gawk -F'|' '{print $6}')
-      expected_gitcommit=$(echo "${max_serial_seen_query}" | gawk -F'|' '{print $7}')
-      expected_gitpath=$(echo "${max_serial_seen_query}" | gawk -F'|' '{print $8}')
+      print_diff_cmd() {
+        local cmd=$1
+        expected_repository=$(echo "${max_serial_seen_query}" | gawk -F'|' '{print $6}')
+        expected_gitcommit=$(echo "${max_serial_seen_query}" | gawk -F'|' '{print $7}')
+        expected_gitpath=$(echo "${max_serial_seen_query}" | gawk -F'|' '{print $8}')
+        common_stem=$(get_common_stem "${expected_gitpath}" "${file}" "${filename}" "${expected_repository}")
+        ${cmd} "diff using:\n     git diff --no-index <(git -C "${expected_repository}" show "${expected_gitcommit}":${common_stem}) "${file}""
+      }
 
+      max_serial_seen=$(echo "${max_serial_seen_query}" | gawk -F'|' '{print $3}')
       delta=$(( max_serial_seen - serial ))
       absolute_delta=$(( delta >= 0 ? delta : -delta ))
-      common_stem=$(get_common_stem "${expected_gitpath}" "${file}" "${filename}" "${expected_repository}")
 
       if [[ ${delta} -lt -10 ]] ; then
         BAD_SERIAL_MACROS+=( "${filename}" )
@@ -322,7 +326,7 @@ EOF
         eerror "$(printf "serial=%s\n" "${serial}")"
         eerror "$(printf "max_serial_seen=%s\n" "${max_serial_seen}")"
         eerror "$(printf "delta=%s\n" "${absolute_delta}")"
-        eerror "diff using:\n     git diff --no-index <(git -C "${expected_repository}" show "${expected_gitcommit}":${common_stem}) "${file}""
+        print_diff_cmd eerror
         eoutdent
       elif [[ ${delta} -lt 0 ]] ; then
         NEW_SERIAL_MACROS+=( "${filename}" )
@@ -332,7 +336,7 @@ EOF
         ewarn "$(printf "serial=%s\n" "${serial}")"
         ewarn "$(printf "max_serial_seen=%s\n" "${max_serial_seen}")"
         ewarn "$(printf "absolute_delta=%s\n" "${absolute_delta}")"
-        ewarn "diff using:\n     git diff --no-index <(git -C "${expected_repository}" show "${expected_gitcommit}":${common_stem}) "${file}""
+        print_diff_cmd ewarn
         eoutdent
       fi
     fi
