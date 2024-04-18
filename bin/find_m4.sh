@@ -128,7 +128,7 @@ get_common_stem()
   # Sometimes, we might have completely disjoint paths apart from the filename.
   # In that case, take the repo path and just append the path to it relative to the repo.
   if [[ ${common_stem} == "${filename}" ]] ; then
-    common_stem=${strip_prefix##"${path_b}"}
+    common_stem=${path_a##"${strip_prefix}"}
     common_stem=${common_stem#/}
   fi
   echo "${common_stem}"
