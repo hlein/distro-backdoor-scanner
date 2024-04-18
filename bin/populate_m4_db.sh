@@ -41,6 +41,7 @@ if command -v find_m4.sh >/dev/null ; then
   FINDM4=find_m4.sh
 elif [ -x "${BASH_SOURCE%/*}/find_m4.sh" ]; then
   FINDM4="${BASH_SOURCE%/*}/find_m4.sh"
+  FINDM4=$(realpath "$FINDM4")
 else
   die "Could not find find_m4.sh in PATH or '${BASH_SOURCE%/*}/'"
 fi
