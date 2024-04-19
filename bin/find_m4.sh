@@ -38,7 +38,7 @@ case "$OS_ID" in
     ;;
 
   *)
-    die "Unsupported OS '$OS_ID'"
+    die "Unsupported OS '${OS_ID}'"
     ;;
 esac
 
@@ -144,8 +144,8 @@ populate_db()
   local processed=0
   for file in "${M4_FILES[@]}" ; do
 
-    [[ $(( $processed % 1000 )) == 0 ]] && einfo "Processed $processed / ${#M4_FILES[@]} macro files"
-    let processed=$processed+1
+    [[ $(( ${processed} % 1000 )) == 0 ]] && einfo "Processed ${processed} / ${#M4_FILES[@]} macro files"
+    let processed=${processed}+1
 
     filename="${file##*/}"
     [[ ${filename} == @(aclocal.m4|acinclude.m4|m4sugar.m4) ]] && continue
@@ -157,7 +157,7 @@ populate_db()
       continue
     fi
     serial_int="${serial//[!0-9]/}"
-    [[ $serial_int != $serial ]] && eerror "File '$file': Non-numeric serial '$serial', arithmetic ops will use '$serial_int'"
+    [[ $serial_int != "${serial}" ]] && eerror "File '${file}': Non-numeric serial '${serial}', arithmetic ops will use '${serial_int}'"
 
     repository=$(git -C "$(dirname "${file}")" rev-parse --show-toplevel 2>/dev/null || cat "${file}.gitrepo")
     commit=$(git -C "$(dirname "${file}")" rev-parse HEAD 2>/dev/null || cat "${file}.gitcommit")
@@ -224,7 +224,7 @@ compare_with_db()
       continue
     fi
     serial_int="${serial//[!0-9]/}"
-    [[ $serial_int != $serial ]] && eerror "File '$file': Non-numeric serial '$serial', arithmetic ops will use '$serial_int'"
+    [[ ${serial_int} != "${serial}" ]] && eerror "File '${file}': Non-numeric serial '${serial}', arithmetic ops will use '${serial_int}'"
 
     plain_checksum=$(sha256sum "${file}" | cut -d' ' -f 1)
     strip_checksum=$(gawk '/changecom/{exit 77}; { gsub(/#.*/,""); gsub(/(^| )dnl.*/,"");}; /^ *$/{next}; {print};' "${file}" 2>/dev/null \
@@ -381,7 +381,7 @@ EOF
 
     local line expected_serial checksum_ok
     for line in ${known_macro_query} ; do
-      IFS='|' read -ra parsed_results <<< "$line"
+      IFS='|' read -ra parsed_results <<< "${line}"
       expected_serial=${parsed_results[1]}
       expected_plain_checksum=${parsed_results[2]}
       expected_strip_checksum=${parsed_results[3]}
@@ -394,9 +394,9 @@ EOF
 
       if [[ ${expected_serial} == "${serial}" ]] ; then
         # We know this serial, so we can assert what its checksum ought to be.
-        if [[ ${expected_plain_checksum} == ${plain_checksum} ]]; then
+        if [[ ${expected_plain_checksum} == "${plain_checksum}" ]]; then
           checksum_ok=plain
-        elif [[ ${expected_strip_checksum} == ${strip_checksum} ]]; then
+        elif [[ ${expected_strip_checksum} == "${strip_checksum}" ]]; then
           checksum_ok=strip
         else
           checksum_ok=no
@@ -456,7 +456,7 @@ if [[ ${MODE} == 0 ]] ; then
   else
     label="$1 $2 ...[$#]"
   fi
-  einfo "Running in create mode, scraping $label"
+  einfo "Running in create mode, scraping ${label}"
 
   if [[ -f m4.db ]] ; then
     debug "Using existing database...\n"
