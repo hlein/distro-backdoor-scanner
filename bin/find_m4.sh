@@ -419,7 +419,7 @@ EOF
           eerror "$(printf "expected_strip_checksum=%s vs strip_checksum=%s\n" \
             "${expected_strip_checksum}" "${strip_checksum}")"
 
-          ewarn "diff using:\n     git diff --no-index <(git -C "${expected_repository}" show "${expected_gitcommit}":${common_stem}) "${file}""
+          eerror "diff using:\n     git diff --no-index <(git -C "${expected_repository}" show "${expected_gitcommit}":${common_stem}) "${file}""
           eoutdent
 
           # No point in checking this one against other checksums
