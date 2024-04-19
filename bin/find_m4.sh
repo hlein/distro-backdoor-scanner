@@ -337,7 +337,8 @@ EOF
         expected_gitcommit=${parsed_results[6]}
         expected_gitpath=${parsed_results[7]}
         common_stem=$(get_common_stem "${expected_gitpath}" "${file}" "${filename}" "${expected_repository}")
-        ${cmd} "diff using:\n     git diff --no-index <(git -C "${expected_repository}" show "${expected_gitcommit}":${common_stem}) "${file}""
+        ${cmd} "diff using:" $'\n\t' \
+          "git diff --no-index <(git -C "${expected_repository}" show "${expected_gitcommit}":${common_stem}) "${file}""
       }
 
       IFS='|' read -ra max_serial_seen_parsed <<< "${max_serial_seen_query}"
@@ -419,7 +420,8 @@ EOF
           eerror "$(printf "expected_strip_checksum=%s vs strip_checksum=%s\n" \
             "${expected_strip_checksum}" "${strip_checksum}")"
 
-          eerror "diff using:\n     git diff --no-index <(git -C "${expected_repository}" show "${expected_gitcommit}":${common_stem}) "${file}""
+          eerror "diff using:" $'\n\t' \
+               "git diff --no-index <(git -C "${expected_repository}" show "${expected_gitcommit}":${common_stem}) "${file}""
           eoutdent
 
           # No point in checking this one against other checksums
