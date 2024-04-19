@@ -308,38 +308,33 @@ EOF
     if [[ -z ${known_filename_query} ]] ; then
       # Have we seen this filename before during this scan, even though
       # it's not in our index?
-      unknown_macro_query=$(sqlite3 "${UNKNOWN_M4_DBPATH}" <<-EOF || die "SQLite query failed"
-        $(printf "SELECT name,serial,plain_checksum,strip_checksum,repository,gitcommit,gitpath FROM m4
-          WHERE name='%s'" \
-          "${filename}"
+      local seen_filename
+      local filename_is_new=1
+      for seen_filename in "${NEW_MACROS[@]}" ; do
+        [[ ${seen_filename} == "${filename}" ]] && { filename_is_new=0; break; }
+      done
+      # We've seen it before as an "unseen" macro, so not very interesting.
+      # TODO: adjust if we're going to do counts
+      [[ ${filename_is_new} == 0 ]] && continue
+
+      # We didn't see this filename before when indexing.
+      NEW_MACROS+=( "${filename}" )
+
+      ewarn "$(printf "Found new macro %s\n" "${filename}")"
+      # Keep a record of it in a separate DB, as we might
+      # see it a bunch of times while we're scanning, even
+      # though it wasn't in our index.
+      #
+      # TOOD: Do we want to check the checksums later on to see how many
+      # unique checksums we saw, or don't bother? Right now, we're only
+      # going to store the first serial we see for it, too.
+      sqlite3 "${UNKNOWN_M4_DBPATH}" <<-EOF || die "SQLite queries failed"
+        $(printf "INSERT INTO \
+          m4 (name, serial, plain_checksum, strip_checksum, repository, gitcommit, gitpath) \
+          VALUES ('%s', '%s', '%s', '%s', '%s', '%s', '%s');\n" \
+          "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}" "${repository:-NULL}" "${commit:-NULL}" "${path:-NULL}"
         )
 EOF
-      )
-
-      if [[ -n "${unknown_macro_query}" ]] ; then
-        # We've seen this macro before during this scan, even though
-        # it wasn't in our index DB.
-        :;
-      else
-        # We didn't see this filename before when indexing.
-        NEW_MACROS+=( "${filename}" )
-
-        ewarn "$(printf "Found new macro %s\n" "${filename}")"
-        # Keep a record of it in a separate DB, as we might
-        # see it a bunch of times while we're scanning, even
-        # though it wasn't in our index.
-        #
-        # TOOD: Do we want to check the checksums later on to see how many
-        # unique checksums we saw, or don't bother? Right now, we're only
-        # going to store the first serial we see for it, too.
-        sqlite3 "${UNKNOWN_M4_DBPATH}" <<-EOF || die "SQLite queries failed"
-          $(printf "INSERT INTO \
-            m4 (name, serial, plain_checksum, strip_checksum, repository, gitcommit, gitpath) \
-            VALUES ('%s', '%s', '%s', '%s', '%s', '%s', '%s');\n" \
-            "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}" "${repository:-NULL}" "${commit:-NULL}" "${path:-NULL}"
-          )
-EOF
-      fi
 
       debug "[%s] Got serial %s with checksum %s stripped %s\n" "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}"
 
