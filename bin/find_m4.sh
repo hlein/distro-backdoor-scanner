@@ -309,9 +309,6 @@ EOF
     )
 
     if [[ -z ${known_filename_query} ]] ; then
-      # We didn't see this filename before when indexing.
-      NEW_MACROS+=( "${filename}" )
-
       # Have we seen this filename before during this scan, even though
       # it's not in our index?
       unknown_macro_query=$(sqlite3 "${UNKNOWN_M4_DBPATH}" <<-EOF || die "SQLite query failed"
@@ -327,6 +324,9 @@ EOF
         # it wasn't in our index DB.
         :;
       else
+        # We didn't see this filename before when indexing.
+        NEW_MACROS+=( "${filename}" )
+
         ewarn "$(printf "Found new macro %s\n" "${filename}")"
         # Keep a record of it in a separate DB, as we might
         # see it a bunch of times while we're scanning, even
