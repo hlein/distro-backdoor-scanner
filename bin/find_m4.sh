@@ -320,7 +320,7 @@ EOF
     # TODO: This could be optimized by preloading it into an assoc array
     # ... and save many repeated forks & queries (to avoid looking up same macro repeatedly)
     max_serial_seen_query=$(sqlite3 m4.db <<-EOF || die "SQlite query failed"
-      SELECT MAX(serial),name,serial,plain_checksum,strip_checksum,repository,gitcommit,gitpath FROM m4 WHERE name='${filename}';
+      SELECT MAX(CAST(serial AS INT)),name,serial,plain_checksum,strip_checksum,repository,gitcommit,gitpath FROM m4 WHERE name='${filename}';
 EOF
     )
 
