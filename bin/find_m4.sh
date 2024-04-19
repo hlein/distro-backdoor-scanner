@@ -1,8 +1,7 @@
 #!/bin/bash
-# TODO: Integrate with package_scan_all and then add to Makefile
+# TODO: Integrate with package_scan_all(?)
 # TODO: Avoid adding duplicate entries?
 # TODO: Should we add where we saw each macro too?
-# TODO: Should we add fuzziness for copyright years, newlines (at EOF)?
 
 die()
 {
