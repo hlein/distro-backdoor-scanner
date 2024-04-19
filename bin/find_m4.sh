@@ -170,15 +170,15 @@ populate_db()
     # https://lists.gnu.org/archive/html/m4-discuss/2014-06/msg00000.html
 
     plain_checksum=$(sha256sum "${file}" | cut -d' ' -f 1)
-    strip_checksum=$(gawk '/changecom/{exit 1}; { gsub(/#.*/,""); gsub(/(^| )dnl.*/,""); /^ *$/{next}; print}' "${file}" 2>/dev/null \
+    strip_checksum=$(gawk '/changecom/{exit 77}; { gsub(/#.*/,""); gsub(/(^| )dnl.*/,"");}; /^ *$/{next}; {print};' "${file}" 2>/dev/null \
         | sha256sum - \
         | cut -d' ' -f1 ; \
         exit ${PIPESTATUS[0]})
     ret=$?
     if [[ ${ret} != 0 ]] ; then
       strip_checksum="${plain_checksum}"
-      if [[ ${ret} != 1 ]]; then
-        eerror "Got error ${ret} from gawk?"
+      if [[ ${ret} != 77 ]]; then
+        eerror "File '${file}': Got error ${ret} from gawk?"
       fi
     fi
 
@@ -227,15 +227,15 @@ compare_with_db()
     [[ $serial_int != $serial ]] && eerror "File '$file': Non-numeric serial '$serial', arithmetic ops will use '$serial_int'"
 
     plain_checksum=$(sha256sum "${file}" | cut -d' ' -f 1)
-    strip_checksum=$(gawk '/changecom/{exit 1}; { gsub(/#.*/,""); gsub(/(^| )dnl.*/,""); /^ *$/{next}; print}' "${file}" 2>/dev/null \
+    strip_checksum=$(gawk '/changecom/{exit 77}; { gsub(/#.*/,""); gsub(/(^| )dnl.*/,"");}; /^ *$/{next}; {print};' "${file}" 2>/dev/null \
         | sha256sum - \
         | cut -d' ' -f1 ; \
         exit ${PIPESTATUS[0]})
     ret=$?
     if [[ ${ret} != 0 ]] ; then
       strip_checksum="${plain_checksum}"
-      if [[ ${ret} != 1 ]]; then
-        eerror "File '$file': Got error ${ret} from gawk?"
+      if [[ ${ret} != 77 ]]; then
+        eerror "File '${file}': Got error ${ret} from gawk?"
       fi
     fi
 
