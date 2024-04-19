@@ -2,6 +2,7 @@
 # TODO: Integrate with package_scan_all(?)
 # TODO: Avoid adding duplicate entries?
 # TODO: Should we add where we saw each macro too?
+# TODO: Record if we saw a bad checksum across multiple packages (notable anyway, but it makes it likely there's some alt. upstream or distro patches involved)
 
 die()
 {
@@ -159,6 +160,7 @@ populate_known_db()
     serial_int="${serial//[!0-9]/}"
     [[ ${serial_int} != "${serial}" ]] && eerror "File '${file}': Non-numeric serial '${serial}', arithmetic ops will use '${serial_int}'"
 
+    # TODO: Replace dirname calls with parameter expansion (or at least cache it...)
     repository=$(git -C "$(dirname "${file}")" rev-parse --show-toplevel 2>/dev/null || cat "${file}.gitrepo")
     commit=$(git -C "$(dirname "${file}")" rev-parse HEAD 2>/dev/null || cat "${file}.gitcommit")
     path=$(cat "${file}".gitpath 2>/dev/null || echo "${file}")
