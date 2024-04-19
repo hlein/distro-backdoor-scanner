@@ -216,6 +216,7 @@ compare_with_db()
   local processed=0
 
   local known_filename known_filename_query
+  declare -A bad_checksums=()
   # Is it a filename we've seen before?
   known_filename_query=$(sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF || die "SQLite query failed"
     SELECT name FROM m4
@@ -327,7 +328,17 @@ EOF
           "git diff --no-index <(git -C "${expected_repository}" show "${expected_gitcommit}:${expected_gitpath}") '${file}'"
 
         DIFF_CMDS+=( "git diff --no-index <(git -C "${expected_repository}" show "${expected_gitcommit}:${expected_gitpath}") '${file}'" )
+        # We don't want to emit loads of diff commands for the same thing
+        # TODO: Make groups of packages which hit it? Store in the unseen DB?
+        bad_checksums[${plain_checksum}]=1
+        bad_checksums[${strip_checksum}]=1
       }
+
+      # We don't want to emit loads of diff commands for the same thing
+      # TODO: Make groups of packages which hit it? Store in the unseen DB?
+      if [[ ${bad_checksums[${plain_checksum}]} == 1 || ${bad_checksums[${strip_checksum}]} == 1 ]] ; then
+        continue
+      fi
 
       IFS='|' read -ra max_serial_seen_parsed <<< "${max_serial_seen_query}"
       max_serial_seen=${max_serial_seen_parsed[2]}
@@ -411,6 +422,11 @@ EOF
           eoutdent
 
           DIFF_CMDS+=( "git diff --no-index <(git -C "${expected_repository}" show "${expected_gitcommit}:${expected_gitpath}") '${file}'" )
+
+          # We don't want to emit loads of diff commands for the same thing
+          # TODO: Make groups of packages which hit it? Store in the unseen DB?
+          bad_checksums[${plain_checksum}]=1
+          bad_checksums[${strip_checksum}]=1
 
           # No point in checking this one against other checksums
           break
