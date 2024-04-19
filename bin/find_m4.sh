@@ -84,7 +84,7 @@ extract_serial()
     # TODO: pretty sure this can be optimized with sed
     # TODO: since that was fixed, there may be 2 valid checksums for each serial. How do we handle that
     # in the DB queries later on?
-    serial=$(grep -m 1 -Pr "#(.+ )?(${filename} )?serial (\d+).*$" "${file}")
+    serial=$(grep -m 1 -Pr "#(.+ )?(${filename} )?serial (\d+[^ ]*).*$" "${file}")
     serial="${serial#* }"
   fi
 
@@ -102,7 +102,7 @@ extract_serial()
 create_db()
 {
   sqlite3 m4.db <<-EOF || die "SQLite DB creation failed"
-    CREATE table m4 (name TEXT, serial INTEGER, checksum TEXT, checksumtype TEXT, repository TEXT, gitcommit TEXT, gitpath TEXT);
+    CREATE table m4 (name TEXT, serial TEXT, checksum TEXT, checksumtype TEXT, repository TEXT, gitcommit TEXT, gitpath TEXT);
 EOF
 }
 
@@ -138,7 +138,7 @@ get_common_stem()
 populate_db()
 {
   local queries=()
-  local serial
+  local serial serial_int
   local file filename
   local checksum checksum_type
   local processed=0
@@ -156,6 +156,8 @@ populate_db()
     if [[ -z ${serial} ]] ; then
       continue
     fi
+    serial_int="${serial//[!0-9]/}"
+    [[ $serial_int != $serial ]] && eerror "File '$file': Non-numeric serial '$serial', arithmetic ops will use '$serial_int'"
 
     repository=$(git -C "$(dirname "${file}")" rev-parse --show-toplevel 2>/dev/null || cat "${file}.gitrepo")
     commit=$(git -C "$(dirname "${file}")" rev-parse HEAD 2>/dev/null || cat "${file}.gitcommit")
@@ -205,8 +207,8 @@ compare_with_db()
   # We have `M4_FILES` as a bunch of macros pending verification that we found
   # unpacked in archives.
   local file filename
-  local max_serial_seen serial
   local checksum query_result
+  local max_serial_seen max_serial_seen_int serial serial_int
   local delta absolute_delta
   local processed=0
   for file in "${M4_FILES[@]}" ; do
@@ -223,6 +225,8 @@ compare_with_db()
     if [[ -z ${serial} ]] ; then
       continue
     fi
+    serial_int="${serial//[!0-9]/}"
+    [[ $serial_int != $serial ]] && eerror "File '$file': Non-numeric serial '$serial', arithmetic ops will use '$serial_int'"
 
     checksum=$(sha256sum "${file}" | cut -d' ' -f 1)
     stripped_checksum=$(gawk '/changecom/{exit 1}; { gsub(/#.*/,""); gsub(/(^| )dnl.*/,""); print}' "${file}" 2>/dev/null \
@@ -334,7 +338,9 @@ EOF
       }
 
       max_serial_seen=$(echo "${max_serial_seen_query}" | gawk -F'|' '{print $3}')
-      delta=$(( max_serial_seen - serial ))
+      # What even are numbers
+      max_serial_seen_int="${max_serial_seen//[!0-9]/}"
+      delta=$(( max_serial_seen_int - serial_int ))
       absolute_delta=$(( delta >= 0 ? delta : -delta ))
 
       if [[ ${delta} -lt -10 ]] ; then
