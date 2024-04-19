@@ -331,15 +331,17 @@ EOF
     if [[ -n ${max_serial_seen_query} ]] ; then
       print_diff_cmd() {
         local cmd=$1
-        # TODO: replace these gawks with shell fu?
-        expected_repository=$(echo "${max_serial_seen_query}" | gawk -F'|' '{print $6}')
-        expected_gitcommit=$(echo "${max_serial_seen_query}" | gawk -F'|' '{print $7}')
-        expected_gitpath=$(echo "${max_serial_seen_query}" | gawk -F'|' '{print $8}')
+
+        IFS='|' read -ra parsed_results <<< "${max_serial_seen_query}"
+        expected_repository=${parsed_results[5]}
+        expected_gitcommit=${parsed_results[6]}
+        expected_gitpath=${parsed_results[7]}
         common_stem=$(get_common_stem "${expected_gitpath}" "${file}" "${filename}" "${expected_repository}")
         ${cmd} "diff using:\n     git diff --no-index <(git -C "${expected_repository}" show "${expected_gitcommit}":${common_stem}) "${file}""
       }
 
-      max_serial_seen=$(echo "${max_serial_seen_query}" | gawk -F'|' '{print $3}')
+      IFS='|' read -ra max_serial_seen_parsed <<< "${max_serial_seen_query}"
+      max_serial_seen=${max_serial_seen_parsed[2]}
       # What even are numbers
       max_serial_seen_int="${max_serial_seen//[!0-9]/}"
       delta=$(( max_serial_seen_int - serial_int ))
@@ -378,14 +380,14 @@ EOF
     )
 
     local line expected_serial expected_checksum
-    # TODO: replace these gawks with shell fu?
     for line in ${known_macro_query} ; do
-      expected_serial=$(echo "${line}" | gawk -F'|' '{print $2}')
-      expected_plain_checksum=$(echo "${line}" | gawk -F'|' '{print $3}')
-      expected_strip_checksum=$(echo "${line}" | gawk -F'|' '{print $4}')
-      expected_repository=$(echo "${line}" | gawk -F'|' '{print $5}')
-      expected_gitcommit=$(echo "${line}" | gawk -F'|' '{print $6}')
-      expected_gitpath=$(echo "${line}" | gawk -F'|' '{print $7}')
+      IFS='|' read -ra parsed_results <<< "$line"
+      expected_serial=${parsed_results[1]}
+      expected_plain_checksum=${parsed_results[2]}
+      expected_strip_checksum=${parsed_results[3]}
+      expected_repository=${parsed_results[4]}
+      expected_gitcommit=${parsed_results[5]}
+      expected_gitpath=${parsed_results[6]}
 
       debug "[%s] Checking candidate w/ expected_serial=%s, expected_plain_checksum=%s, expected_strip_checksum=%s\n" \
         "${filename}" "${expected_serial}" "${expected_plain_checksum}" "${expected_strip_checksum}"
