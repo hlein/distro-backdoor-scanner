@@ -482,7 +482,7 @@ else
   [[ -f "${KNOWN_M4_DBPATH}" ]] || die "error: running in DB comparison mode but '${KNOWN_M4_DBPATH}' not found!"
 
   einfo "Purging old (if any) unknown db..."
-  rm -v "${UNKNOWN_M4_DBPATH}"
+  rm -vf "${UNKNOWN_M4_DBPATH}"
   einfo "Creating new unknown db..."
   create_unknown_db
 
