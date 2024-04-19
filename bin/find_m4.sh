@@ -274,11 +274,13 @@ EOF
         eindent
         ewarn "$(printf "plain checksum: %s\n" "${plain_checksum}")"
         ewarn "$(printf "strip checksum: %s\n" "${strip_checksum}")"
-        # TODO: compress this into an array then print
-        for line in "${known_checksum_query[@]}" ; do
+
+        declare -A previously_seen_names=()
+        for line in ${known_checksum_query} ; do
           previously_seen_name=$(echo "${line}" | cut -d'|' -f1)
-          ewarn "$(printf "previously known names: %s\n" "${previously_seen_name}")"
+          previously_seen_names[${previously_seen_name}]=${previously_seen_name}
         done
+        ewarn "$(printf "previously known names: %s\n" "${previously_seen_names[*]}")"
         eoutdent
 
         continue
@@ -340,6 +342,8 @@ EOF
       fi
 
       debug "[%s] Got serial %s with checksum %s stripped %s\n" "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}"
+
+      # This filename isn't in the index, so no point in carrying on.
       continue
     fi
 
