@@ -73,7 +73,6 @@ extract_serial()
   # We have to cope with:
   # - '#serial 1234 a.m4'
   # - '# serial 1234 b.m4'
-  # TODO: handle decimal (below too)
   # TODO: pretty sure this can be optimized with sed(?) (less important now it uses gawk)
   # TODO: missed opportunity to diagnose multiple serial lines here, see https://lists.gnu.org/archive/html/bug-gnulib/2024-04/msg00266.html
   serial=$(gawk 'match($0, /^#(.* )?serial ([[:digit:]]+).*$/, a) {print a[2]; exit;}' "${file}")
