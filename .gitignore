@@ -1,4 +1,8 @@
 .targets
 m4.db
 m4.db-journal
+known_m4.db
+known_m4.db-journal
+unknown_m4.db
+unknown_m4.db-journal
 tmp
