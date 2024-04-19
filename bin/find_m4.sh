@@ -257,6 +257,7 @@ compare_with_db()
 EOF
     )
     # We've seen this checksum before. Is it for this filename?
+    # TODO: can we simply parse this out of ${known_checksum_query}?
     if [[ -n ${known_checksum_query} ]] ; then
       known_filename_by_checksum_query=$(sqlite3 m4.db <<-EOF || die "SQLite query failed"
       $(printf "SELECT name,serial,checksum,checksumtype,repository,gitcommit,gitpath FROM m4
