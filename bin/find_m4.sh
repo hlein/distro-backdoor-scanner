@@ -368,6 +368,8 @@ EOF
         expected_gitpath=${parsed_results[7]}
         ${cmd} "diff using:" $'\n\t' \
           "git diff --no-index <(git -C "${expected_repository}" show "${expected_gitcommit}:${expected_gitpath}") '${file}'"
+
+        DIFF_CMDS+=( "git diff --no-index <(git -C "${expected_repository}" show "${expected_gitcommit}:${expected_gitpath}") '${file}'" )
       }
 
       IFS='|' read -ra max_serial_seen_parsed <<< "${max_serial_seen_query}"
@@ -451,6 +453,8 @@ EOF
                "git diff --no-index <(git -C "${expected_repository}" show "${expected_gitcommit}:${expected_gitpath}") '${file}'"
           eoutdent
 
+          DIFF_CMDS+=( "git diff --no-index <(git -C "${expected_repository}" show "${expected_gitcommit}:${expected_gitpath}") '${file}'" )
+
           # No point in checking this one against other checksums
           break
         fi
@@ -478,6 +482,7 @@ NEW_MACROS=()
 NEW_SERIAL_MACROS=()
 BAD_MACROS=()
 BAD_SERIAL_MACROS=()
+DIFF_CMDS=()
 
 if [[ ${MODE} == 0 ]] ; then
   if [ "$#" -le 3 ]; then
@@ -518,7 +523,7 @@ else
   printf "\n"
   # TODO: Summarise unknowns here (hit count for each at least)
   if (( ${#NEW_MACROS} > 0 )) || (( ${#NEW_SERIAL_MACROS} > 0 )) || (( ${#BAD_MACROS} > 0 )) \
-    || (( ${#BAD_SERIAL_MACROS} > 0 )) ; then
+    || (( ${#BAD_SERIAL_MACROS} > 0 )) || (( ${#DIFF_CMDS} > 0 )) ; then
     einfo "Scanning complete. Summary below."
 
     (( ${#NEW_MACROS} > 0 )) && ewarn "New macros: ${NEW_MACROS[*]}"
@@ -526,5 +531,10 @@ else
 
     (( ${#BAD_MACROS} > 0 )) && eerror "Miscompared macros: ${BAD_MACROS[*]}"
     (( ${#BAD_SERIAL_MACROS} > 0 )) && eerror "Significant serial diff. macros: ${BAD_SERIAL_MACROS[*]}"
+
+    (( ${#DIFF_CMDS} > 0 )) && {
+      eerror "Collected diff cmds for review:" ;
+      printf "%s\n" "${DIFF_CMDS[@]}" ;
+    }
   fi
 fi
