@@ -85,6 +85,7 @@ for gnu_repo in "${GNU_REPOS[@]}" ; do
     warn_clone_abort=0
     git clone ${GNU_REPOS_TOPURL}${gnu_repo}.git/ || die "Clone '${GNU_REPOS_TOPURL}${gnu_repo}.git' failed"
   fi
+  git -C ${gnu_repo} branch | grep -E -q '^\* (master|main)$' || die "Repo ${gnu_repo} exists but not in master/main branch"
   DIRS+=( "${GNU_REPOS_TOPDIR}${gnu_repo}" )
 done
 
