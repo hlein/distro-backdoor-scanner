@@ -95,14 +95,14 @@ extract_serial()
 # Creates a table called `m4` with fields:
 # `name`
 # `serial`
-# `checksum` (SHA256),
-# `checksum_type`` (0 means regular checksum, 1 means checksum of comment-stripped file)
+# `plain_checksum` (SHA256),
+# `strip_checksum` (SHA256), (checksum of comment-stripped contents)
 # `repository` (name of git repo)
 # `commit` (git commit in `repository`)
 create_db()
 {
   sqlite3 m4.db <<-EOF || die "SQLite DB creation failed"
-    CREATE table m4 (name TEXT, serial TEXT, checksum TEXT, checksumtype TEXT, repository TEXT, gitcommit TEXT, gitpath TEXT);
+    CREATE table m4 (name TEXT, serial TEXT, plain_checksum TEXT, strip_checksum TEXT, repository TEXT, gitcommit TEXT, gitpath TEXT);
 EOF
 }
 
@@ -140,7 +140,7 @@ populate_db()
   local queries=()
   local serial serial_int
   local file filename
-  local checksum checksum_type
+  local plain_checksum strip_checksum
   local processed=0
   for file in "${M4_FILES[@]}" ; do
 
@@ -163,36 +163,33 @@ populate_db()
     commit=$(git -C "$(dirname "${file}")" rev-parse HEAD 2>/dev/null || cat "${file}.gitcommit")
     path=$(cat "${file}".gitpath 2>/dev/null || echo "${file}")
 
-    # Get the file without any comments on a best-effort basis
-    checksum_type=1
+    # Get the plain checksum, and if possible, comment-stripped checksum.
+    # If the file contained 'changecom', we give up, don't try to strip.
+    # https://www.gnu.org/software/m4/manual/html_node/Comments.html
+    # https://www.gnu.org/software/m4/manual/html_node/Changecom.html
+    # https://lists.gnu.org/archive/html/m4-discuss/2014-06/msg00000.html
 
-    stripped_checksum=$(gawk '/changecom/{exit 1}; { gsub(/#.*/,""); gsub(/(^| )dnl.*/,""); print}' "${file}" \
+    plain_checksum=$(sha256sum "${file}" | cut -d' ' -f 1)
+    strip_checksum=$(gawk '/changecom/{exit 1}; { gsub(/#.*/,""); gsub(/(^| )dnl.*/,""); /^ *$/{next}; print}' "${file}" 2>/dev/null \
         | sha256sum - \
         | cut -d' ' -f1 ; \
         exit ${PIPESTATUS[0]})
     ret=$?
-
-    if [[ ${ret} == 0 ]] ; then
-      checksum="${stripped_checksum}"
-    elif [[ ${ret} == 1 ]] ; then
-      # The file contained 'changecom', so we have to do the best we can.
-      # https://www.gnu.org/software/m4/manual/html_node/Comments.html
-      # https://www.gnu.org/software/m4/manual/html_node/Changecom.html
-      # https://lists.gnu.org/archive/html/m4-discuss/2014-06/msg00000.html
-      checksum=$(sha256sum "${file}" | cut -d' ' -f 1)
-      checksum_type=0
-    else
-      eerror "Got error ${ret} from gawk?"
+    if [[ ${ret} != 0 ]] ; then
+      strip_checksum="${plain_checksum}"
+      if [[ ${ret} != 1 ]]; then
+        eerror "Got error ${ret} from gawk?"
+      fi
     fi
 
     queries+=(
       "$(printf "INSERT INTO \
-        m4 (name, serial, checksum, checksumtype, repository, gitcommit, gitpath) \
+        m4 (name, serial, plain_checksum, strip_checksum, repository, gitcommit, gitpath) \
         VALUES ('%s', '%s', '%s', '%s', '%s', '%s', '%s');\n" \
-        "${filename}" "${serial}" "${checksum}" "${checksum_type}" "${repository:-NULL}" "${commit:-NULL}" "${path:-NULL}")"
+        "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}" "${repository:-NULL}" "${commit:-NULL}" "${path:-NULL}")"
     )
 
-    debug "[%s] Got serial %s with checksum %s\n" "${filename}" "${serial}" "${checksum}"
+    debug "[%s] Got serial %s with checksum %s stripped %s\n" "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}"
   done
 
   sqlite3 m4.db <<-EOF || die "SQLite queries failed"
@@ -207,8 +204,9 @@ compare_with_db()
   # We have `M4_FILES` as a bunch of macros pending verification that we found
   # unpacked in archives.
   local file filename
-  local checksum query_result
   local max_serial_seen max_serial_seen_int serial serial_int
+  local plain_checksum strip_checksum
+  local query_result
   local delta absolute_delta
   local processed=0
   for file in "${M4_FILES[@]}" ; do
@@ -228,19 +226,22 @@ compare_with_db()
     serial_int="${serial//[!0-9]/}"
     [[ $serial_int != $serial ]] && eerror "File '$file': Non-numeric serial '$serial', arithmetic ops will use '$serial_int'"
 
-    checksum=$(sha256sum "${file}" | cut -d' ' -f 1)
-    stripped_checksum=$(gawk '/changecom/{exit 1}; { gsub(/#.*/,""); gsub(/(^| )dnl.*/,""); print}' "${file}" 2>/dev/null \
+    plain_checksum=$(sha256sum "${file}" | cut -d' ' -f 1)
+    strip_checksum=$(gawk '/changecom/{exit 1}; { gsub(/#.*/,""); gsub(/(^| )dnl.*/,""); /^ *$/{next}; print}' "${file}" 2>/dev/null \
         | sha256sum - \
         | cut -d' ' -f1 ; \
         exit ${PIPESTATUS[0]})
     ret=$?
-    if [[ ${ret} -eq 1 ]] ; then
-      stripped_checksum="${checksum}"
+    if [[ ${ret} != 0 ]] ; then
+      strip_checksum="${plain_checksum}"
+      if [[ ${ret} != 1 ]]; then
+        eerror "File '$file': Got error ${ret} from gawk?"
+      fi
     fi
 
     debug "\n"
-    debug "[%s] Got serial %s with checksum %s and stripped checksum %s\n" \
-      "${filename}" "${serial}" "${checksum}" "${stripped_checksum}"
+    debug "[%s] Got serial %s with checksum %s stripped %s\n" \
+      "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}"
     debug "[%s] Checking database...\n" "${filename}"
 
     # Have we seen this checksum before (stripped or otherwise)?
@@ -250,9 +251,9 @@ compare_with_db()
     # TODO: This could be optimized by preloading it into an assoc array
     # ... and save many repeated forks & even queries (to avoid looking up same macro repeatedly)
     known_checksum_query=$(sqlite3 m4.db <<-EOF || die "SQLite query failed"
-      $(printf "SELECT name,serial,checksum,checksumtype,repository,gitcommit,gitpath FROM m4
-        WHERE checksum='%s' OR checksum='%s'" \
-        "${checksum}" "${stripped_checksum}"
+      $(printf "SELECT name,serial,plain_checksum,strip_checksum,repository,gitcommit,gitpath FROM m4
+        WHERE plain_checksum='%s' OR strip_checksum='%s'" \
+        "${plain_checksum}" "${strip_checksum}"
       )
 EOF
     )
@@ -260,10 +261,10 @@ EOF
     # TODO: can we simply parse this out of ${known_checksum_query}?
     if [[ -n ${known_checksum_query} ]] ; then
       known_filename_by_checksum_query=$(sqlite3 m4.db <<-EOF || die "SQLite query failed"
-      $(printf "SELECT name,serial,checksum,checksumtype,repository,gitcommit,gitpath FROM m4
-        WHERE name='%s' AND (checksum='%s' OR checksum='%s')" \
-        "${filename}" "${checksum}" "${stripped_checksum}"
-      )
+        $(printf "SELECT name,serial,plain_checksum,strip_checksum,repository,gitcommit,gitpath FROM m4
+          WHERE name='%s' AND (plain_checksum='%s' OR strip_checksum='%s')" \
+          "${filename}" "${plain_checksum}" "${strip_checksum}"
+        )
 EOF
       )
 
@@ -272,8 +273,8 @@ EOF
         ewarn "$(printf "New filename %s found for already-known checksums\n" "${filename}")"
 
         eindent
-        ewarn "$(printf "checksum: %s\n" "${checksum}")"
-        ewarn "$(printf "stripped checksum: %s\n" "${stripped_checksum}")"
+        ewarn "$(printf "plain checksum: %s\n" "${plain_checksum}")"
+        ewarn "$(printf "strip checksum: %s\n" "${strip_checksum}")"
         # TODO: compress this into an array then print
         for line in "${known_checksum_query[@]}" ; do
           previously_seen_name=$(echo "${line}" | cut -d'|' -f1)
@@ -296,7 +297,7 @@ EOF
 
     # Is it a filename we've seen before?
     known_filename_query=$(sqlite3 m4.db <<-EOF || die "SQLite query failed"
-      $(printf "SELECT name,serial,checksum,checksumtype,repository,gitcommit,gitpath FROM m4
+      $(printf "SELECT name,serial,plain_checksum,strip_checksum,repository,gitcommit,gitpath FROM m4
         WHERE name='%s'" \
         "${filename}"
       )
@@ -319,7 +320,7 @@ EOF
     # TODO: This could be optimized by preloading it into an assoc array
     # ... and save many repeated forks & queries (to avoid looking up same macro repeatedly)
     max_serial_seen_query=$(sqlite3 m4.db <<-EOF || die "SQlite query failed"
-      SELECT MAX(serial),name,serial,checksum,checksumtype,repository,gitcommit,gitpath FROM m4 WHERE name='${filename}';
+      SELECT MAX(serial),name,serial,plain_checksum,strip_checksum,repository,gitcommit,gitpath FROM m4 WHERE name='${filename}';
 EOF
     )
 
@@ -372,39 +373,36 @@ EOF
     # or indeed serial number. Look up all the checksums for this
     # macro & serial.
     known_macro_query=$(sqlite3 m4.db <<-EOF || die "SQlite query failed"
-      SELECT name,serial,checksum,checksumtype,repository,gitcommit,gitpath FROM m4 WHERE name='${filename}';
+      SELECT name,serial,plain_checksum,strip_checksum,repository,gitcommit,gitpath FROM m4 WHERE name='${filename}';
 EOF
     )
 
     local line expected_serial expected_checksum
+    # TODO: replace these gawks with shell fu?
     for line in ${known_macro_query} ; do
       expected_serial=$(echo "${line}" | gawk -F'|' '{print $2}')
-      expected_checksum=$(echo "${line}" | gawk -F'|' '{print $3}')
-      expected_checksumtype=$(echo "${line}" | gawk -F'|' '{print $4}')
+      expected_plain_checksum=$(echo "${line}" | gawk -F'|' '{print $3}')
+      expected_strip_checksum=$(echo "${line}" | gawk -F'|' '{print $4}')
       expected_repository=$(echo "${line}" | gawk -F'|' '{print $5}')
       expected_gitcommit=$(echo "${line}" | gawk -F'|' '{print $6}')
       expected_gitpath=$(echo "${line}" | gawk -F'|' '{print $7}')
 
-      debug "[%s] Checking candidate w/ expected_serial=%s, expected_checksum=%s, expected_checksumtype=%s\n" \
-        "${filename}" "${expected_serial}" "${expected_checksum}" "${expected_checksumtype}"
+      debug "[%s] Checking candidate w/ expected_serial=%s, expected_plain_checksum=%s, expected_strip_checksum=%s\n" \
+        "${filename}" "${expected_serial}" "${expected_plain_checksum}" "${expected_strip_checksum}"
 
       if [[ ${expected_serial} == "${serial}" ]] ; then
         # We know this serial, so we can assert what its checksum ought to be.
-        case "${expected_checksumtype}" in
-          0)
-            [[ ${expected_checksum} == "${checksum}" ]] && checksum_ok=1 || checksum_ok=0
-            ;;
-          1)
-            [[ ${expected_checksum} == "${stripped_checksum}" ]] && checksum_ok=1 || checksum_ok=0
-            ;;
-          *)
-            die "Unexpected checksumtype: ${expected_checksumtype}!"
-            ;;
-        esac
+	if [[ ${expected_plain_checksum} == ${plain_checksum} ]]; then
+	  checksum_ok=plain
+	elif [[ ${expected_strip_checksum} == ${strip_checksum} ]]; then
+	  checksum_ok=strip
+	else
+	  checksum_ok=no
+	fi
 
-        debug "[%s] expected_checksumtype=%s, checksum_ok=%s\n" "${filename}" "${expected_checksumtype}" "${checksum_ok}"
+        debug "[%s] checksum_ok=%s\n" "${filename}" "${checksum_ok}"
 
-        if [[ ${checksum_ok} == 0 ]] ; then
+        if [[ ${checksum_ok} == no ]] ; then
           BAD_MACROS+=( "${file}" )
 
           common_stem=$(get_common_stem "${expected_gitpath}" "${file}" "${filename}" "${expected_repository}")
@@ -414,10 +412,10 @@ EOF
           eerror "$(printf "full path: %s\n" "${file}")"
           eerror "$(printf "expected_serial=%s vs serial=%s\n" \
             "${expected_serial}" "${serial}")"
-          eerror "$(printf "expected_checksum=%s vs checksum=%s\n" \
-            "${expected_checksum}" "${checksum}")"
-          eerror "$(printf "expected_checksum=%s vs stripped_checksum=%s\n" \
-            "${expected_checksum}" "${stripped_checksum}")"
+          eerror "$(printf "expected_plain_checksum=%s vs plain_checksum=%s\n" \
+            "${expected_plain_checksum}" "${plain_checksum}")"
+          eerror "$(printf "expected_strip_checksum=%s vs strip_checksum=%s\n" \
+            "${expected_strip_checksum}" "${strip_checksum}")"
 
           ewarn "diff using:\n     git diff --no-index <(git -C "${expected_repository}" show "${expected_gitcommit}":${common_stem}) "${file}""
           eoutdent
