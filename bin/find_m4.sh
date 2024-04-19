@@ -379,7 +379,7 @@ EOF
 EOF
     )
 
-    local line expected_serial expected_checksum
+    local line expected_serial checksum_ok
     for line in ${known_macro_query} ; do
       IFS='|' read -ra parsed_results <<< "$line"
       expected_serial=${parsed_results[1]}
