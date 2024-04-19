@@ -264,7 +264,7 @@ EOF
     if [[ -n ${known_checksum_query} ]] ; then
       known_filename_by_checksum_query=$(sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF || die "SQLite query failed"
         $(printf "SELECT name,serial,plain_checksum,strip_checksum,repository,gitcommit,gitpath FROM m4
-          WHERE name='%s' AND (plain_checksum='%s' OR strip_checksum='%s')" \
+          WHERE name='%s' AND (plain_checksum='%s' OR strip_checksum='%s') LIMIT 1" \
           "${filename}" "${plain_checksum}" "${strip_checksum}"
         )
 EOF
