@@ -212,19 +212,6 @@ compare_with_db()
   local delta absolute_delta
   local processed=0
 
-  declare -A valid_checksums=()
-  known_checksum_query=$(sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF || die "SQLite query failed"
-      SELECT plain_checksum,strip_checksum FROM m4
-EOF
-  )
-  for checksum in ${known_checksum_query} ; do
-    IFS='|' read -ra known_checksum_query_parsed <<< "${checksum}"
-    plain_checksum=${known_checksum_query_parsed[0]}
-    strip_checksum=${known_checksum_query_parsed[1]}
-    valid_checksums[${plain_checksum}]=1
-    valid_checksums[${strip_checksum}]=1
-  done
-
   for file in "${M4_FILES[@]}" ; do
 
     [[ $(( ${processed} % 1000 )) == 0 ]] && einfo "Compared ${processed} / ${#M4_FILES[@]} macro files"
@@ -259,30 +246,6 @@ EOF
     debug "[%s] Got serial %s with checksum %s stripped %s\n" \
       "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}"
     debug "[%s] Checking database...\n" "${filename}"
-
-    # Have we seen this checksum before (stripped or otherwise)?
-    # If yes, it's only (mildly) interesting if it has a different name than we know it by.
-    # If not, we need to see if it's a known serial number or not.
-    #
-    # TODO: This could be optimized by preloading it into an assoc array
-    # ... and save many repeated forks & even queries (to avoid looking up same macro repeatedly)
-    local indexed_checksum=${valid_checksums[${plain_checksum}]} || ${valid_checksums[${strip_checksum}]} || 0
-
-    # We've seen this checksum before. Is it for this filename?
-    # TODO: can we simply parse this out of ${known_checksum_query}?
-    if [[ ${indexed_checksum} == 1 ]] ; then
-      # We know the checksum, but we've never seen this (filename, checksum) pair before.
-      # TODO: Restore this?
-
-      # We've seen the checksum before and it's for this filename. Move on.
-      # TODO: Maybe note if we saw it for this (checksum, filename) before but with a different serial?
-      # TODO: Do we really want to skip here? check with the part at end of function
-      continue
-    fi
-
-    #
-    # We've never seen this checksum before.
-    #
 
     # Is it a filename we've seen before?
     known_filename_query=$(sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF || die "SQLite query failed"
