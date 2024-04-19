@@ -465,10 +465,10 @@ if [[ ${MODE} == 0 ]] ; then
     create_db
   fi
 
-  debug "Finding macros to index...\n"
+  einfo "Finding macros to index..."
   find_macros "$@"
 
-  debug "Adding macros to database...\n"
+  einfo "Adding ${#M4_FILES[@]} macros to database..."
   populate_db
 else
   einfo "Running in comparison mode..."
@@ -478,7 +478,7 @@ else
   einfo "Finding macros in '${M4_DIR}' to compare..."
   find_macros "$M4_DIR"
 
-  einfo "Comparing macros with database..."
+  einfo "Comparing ${#M4_FILES[@]} macros with database..."
   compare_with_db
 
   printf "\n"
