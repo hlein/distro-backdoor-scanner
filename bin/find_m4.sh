@@ -141,7 +141,12 @@ populate_db()
   local serial
   local file filename
   local checksum checksum_type
+  local processed=0
   for file in "${M4_FILES[@]}" ; do
+
+    [[ $(( $processed % 1000 )) == 0 ]] && einfo "Processed $processed / ${#M4_FILES[@]} macro files"
+    let processed=$processed+1
+
     filename="${file##*/}"
     [[ ${filename} == @(aclocal.m4|acinclude.m4|m4sugar.m4) ]] && continue
 
@@ -203,7 +208,12 @@ compare_with_db()
   local max_serial_seen serial
   local checksum query_result
   local delta absolute_delta
+  local processed=0
   for file in "${M4_FILES[@]}" ; do
+
+    [[ $(( $processed % 1000 )) == 0 ]] && einfo "Compared $processed / ${#M4_FILES[@]} macro files"
+    let processed=$processed+1
+
     filename="${file##*/}"
     [[ ${filename} == @(aclocal.m4|acinclude.m4|m4sugar.m4) ]] && continue
 
