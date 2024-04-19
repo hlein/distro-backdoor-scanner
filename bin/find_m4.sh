@@ -143,6 +143,9 @@ populate_known_db()
   local file filename
   local plain_checksum strip_checksum
   local processed=0
+
+  local seen_checksums=()
+
   for file in "${M4_FILES[@]}" ; do
 
     [[ $(( ${processed} % 1000 )) == 0 ]] && einfo "Processed ${processed} / ${#M4_FILES[@]} macro files"
@@ -211,6 +214,20 @@ compare_with_db()
   local query_result
   local delta absolute_delta
   local processed=0
+
+  declare -A valid_checksums=()
+  known_checksum_query=$(sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF || die "SQLite query failed"
+      SELECT plain_checksum,strip_checksum FROM m4
+EOF
+  )
+  for checksum in ${known_checksum_query} ; do
+    IFS='|' read -ra known_checksum_query_parsed <<< "${checksum}"
+    plain_checksum=${known_checksum_query_parsed[0]}
+    strip_checksum=${known_checksum_query_parsed[1]}
+    valid_checksums[${plain_checksum}]=1
+    valid_checksums[${strip_checksum}]=1
+  done
+
   for file in "${M4_FILES[@]}" ; do
 
     [[ $(( ${processed} % 1000 )) == 0 ]] && einfo "Compared ${processed} / ${#M4_FILES[@]} macro files"
@@ -252,42 +269,13 @@ compare_with_db()
     #
     # TODO: This could be optimized by preloading it into an assoc array
     # ... and save many repeated forks & even queries (to avoid looking up same macro repeatedly)
-    known_checksum_query=$(sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF || die "SQLite query failed"
-      $(printf "SELECT name,serial,plain_checksum,strip_checksum,repository,gitcommit,gitpath FROM m4
-        WHERE plain_checksum='%s' OR strip_checksum='%s'" \
-        "${plain_checksum}" "${strip_checksum}"
-      )
-EOF
-    )
+    local indexed_checksum=${valid_checksums[${plain_checksum}]} || ${valid_checksums[${strip_checksum}]} || 0
+
     # We've seen this checksum before. Is it for this filename?
     # TODO: can we simply parse this out of ${known_checksum_query}?
-    if [[ -n ${known_checksum_query} ]] ; then
-      known_filename_by_checksum_query=$(sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF || die "SQLite query failed"
-        $(printf "SELECT name,serial,plain_checksum,strip_checksum,repository,gitcommit,gitpath FROM m4
-          WHERE name='%s' AND (plain_checksum='%s' OR strip_checksum='%s') LIMIT 1" \
-          "${filename}" "${plain_checksum}" "${strip_checksum}"
-        )
-EOF
-      )
-
+    if [[ ${indexed_checksum} == 1 ]] ; then
       # We know the checksum, but we've never seen this (filename, checksum) pair before.
-      if [[ -z ${known_filename_by_checksum_query} ]] ; then
-        ewarn "$(printf "New filename %s found for already-known checksums\n" "${filename}")"
-
-        eindent
-        ewarn "$(printf "plain checksum: %s\n" "${plain_checksum}")"
-        ewarn "$(printf "strip checksum: %s\n" "${strip_checksum}")"
-
-        declare -A previously_seen_names=()
-        for line in ${known_checksum_query} ; do
-          previously_seen_name=$(echo "${line}" | cut -d'|' -f1)
-          previously_seen_names[${previously_seen_name}]=${previously_seen_name}
-        done
-        ewarn "$(printf "previously known names: %s\n" "${previously_seen_names[*]}")"
-        eoutdent
-
-        continue
-      fi
+      # TODO: Restore this?
 
       # We've seen the checksum before and it's for this filename. Move on.
       # TODO: Maybe note if we saw it for this (checksum, filename) before but with a different serial?
