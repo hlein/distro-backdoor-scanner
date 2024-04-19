@@ -45,6 +45,8 @@ esac
 # Use the distro-specific unpack dir unless told otherwise
 M4_DIR="${M4_DIR:-${UNPACK_DIR}}"
 
+shopt -s expand_aliases
+alias tput=false
 . /lib/gentoo/functions.sh || {
   # Stubs for non-Gentoo systems
   eerror() { echo "$@"; }
@@ -53,6 +55,7 @@ M4_DIR="${M4_DIR:-${UNPACK_DIR}}"
   eindent() { :; }
   eoutdent() { :; }
 }
+unalias tput
 
 debug()
 {

@@ -22,6 +22,8 @@ GNU_REPOS=(
 	"libtool"
 )
 
+shopt -s expand_aliases
+alias tput=false
 . /lib/gentoo/functions.sh || {
   # Stubs for non-Gentoo systems
   eerror() { echo "$@"; }
@@ -30,6 +32,7 @@ GNU_REPOS=(
   eindent() { :; }
   eoutdent() { :; }
 }
+unalias tput
 
 cleanup()
 {
