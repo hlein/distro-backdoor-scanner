@@ -17,7 +17,7 @@ KNOWN_M4_DBPATH="known_m4.db"
 
 OS_ID=$(sed -n -E 's/^ID="?([^ "]+)"? *$/\1/p' /etc/os-release 2>/dev/null)
 
-case "$OS_ID" in
+case "${OS_ID}" in
 
   "")
     die "Could not extract an ID= line from /etc/os-release"
@@ -140,7 +140,7 @@ populate_known_db()
       continue
     fi
     serial_int="${serial//[!0-9]/}"
-    [[ $serial_int != "${serial}" ]] && eerror "File '${file}': Non-numeric serial '${serial}', arithmetic ops will use '${serial_int}'"
+    [[ ${serial_int} != "${serial}" ]] && eerror "File '${file}': Non-numeric serial '${serial}', arithmetic ops will use '${serial_int}'"
 
     repository=$(git -C "$(dirname "${file}")" rev-parse --show-toplevel 2>/dev/null || cat "${file}.gitrepo")
     commit=$(git -C "$(dirname "${file}")" rev-parse HEAD 2>/dev/null || cat "${file}.gitcommit")
@@ -454,11 +454,11 @@ if [[ ${MODE} == 0 ]] ; then
   populate_known_db
 else
   einfo "Running in comparison mode..."
-  [[ -f "${KNOWN_M4_DBPATH}" ]] || die "error: running in DB comparison mode but "${KNOWN_M4_DBPATH}" not found!"
+  [[ -f "${KNOWN_M4_DBPATH}" ]] || die "error: running in DB comparison mode but '${KNOWN_M4_DBPATH}' not found!"
 
   # Which of these files are new?
   einfo "Finding macros in '${M4_DIR}' to compare..."
-  find_macros "$M4_DIR"
+  find_macros "${M4_DIR}"
 
   einfo "Comparing ${#M4_FILES[@]} macros with database..."
   compare_with_db
