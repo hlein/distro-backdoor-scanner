@@ -215,6 +215,17 @@ compare_with_db()
   local delta absolute_delta
   local processed=0
 
+  local known_filename known_filename_query
+  # Is it a filename we've seen before?
+  known_filename_query=$(sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF || die "SQLite query failed"
+    SELECT name FROM m4
+EOF
+  )
+  declare -A known_filenames=()
+  for known_filename in ${known_filename_query} ; do
+    known_filenames[${known_filename}]=1
+  done
+
   for file in "${M4_FILES[@]}" ; do
 
     [[ $(( ${processed} % 1000 )) == 0 ]] && einfo "Compared ${processed} / ${#M4_FILES[@]} macro files"
@@ -250,16 +261,7 @@ compare_with_db()
       "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}"
     debug "[%s] Checking database...\n" "${filename}"
 
-    # Is it a filename we've seen before?
-    known_filename_query=$(sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF || die "SQLite query failed"
-      $(printf "SELECT name,serial,plain_checksum,strip_checksum,repository,gitcommit,gitpath FROM m4
-        WHERE name='%s'" \
-        "${filename}"
-      )
-EOF
-    )
-
-    if [[ -z ${known_filename_query} ]] ; then
+    if ! [[ ${known_filenames[${filename}]} ]] ; then
       # Have we seen this filename before during this scan, even though
       # it's not in our index?
       local seen_filename
