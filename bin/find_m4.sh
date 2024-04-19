@@ -358,7 +358,7 @@ EOF
     # Find the maximum serial number we've ever seen for this macro.
     # TODO: This could be optimized by preloading it into an assoc array
     # ... and save many repeated forks & queries (to avoid looking up same macro repeatedly)
-    max_serial_seen_query=$(sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF || die "SQlite query failed"
+    max_serial_seen_query=$(sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF || die "SQLite query failed"
       SELECT MAX(CAST(serial AS INT)),name,serial,plain_checksum,strip_checksum,repository,gitcommit,gitpath FROM m4 WHERE name='${filename}';
 EOF
     )
@@ -415,7 +415,7 @@ EOF
     # We know this macro, but we may not recognize its checksum
     # or indeed serial number. Look up all the checksums for this
     # macro & serial.
-    known_macro_query=$(sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF || die "SQlite query failed"
+    known_macro_query=$(sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF || die "SQLite query failed"
       SELECT name,serial,plain_checksum,strip_checksum,repository,gitcommit,gitpath FROM m4 WHERE name='${filename}';
 EOF
     )
