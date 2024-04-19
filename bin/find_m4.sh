@@ -12,6 +12,7 @@ die()
 COMMANDS=( cut find gawk git grep sha256sum sqlite3 )
 
 KNOWN_M4_DBPATH="known_m4.db"
+UNKNOWN_M4_DBPATH="unknown_m4.db"
 
 # Various locations, commands, etc. differ by distro
 
@@ -94,7 +95,7 @@ extract_serial()
   echo "${serial}"
 }
 
-# Initial creation of database.
+# Initial creation of known M4 macros database.
 # Creates a table called `m4` with fields:
 # `name`
 # `serial`
@@ -105,6 +106,22 @@ extract_serial()
 create_known_db()
 {
   sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF || die "SQLite DB creation failed"
+    CREATE table m4 (name TEXT, serial TEXT, plain_checksum TEXT, strip_checksum TEXT, repository TEXT, gitcommit TEXT, gitpath TEXT);
+EOF
+}
+
+# Initial creation of unknown M4 macros database.
+# Creates a table called `m4` with fields:
+# `name`
+# `serial`
+# `plain_checksum` (SHA256),
+# `strip_checksum` (SHA256), (checksum of comment-stripped contents)
+# `repository` (name of git repo)
+# `commit` (git commit in `repository`)
+create_unknown_db()
+{
+  # TODO: Improve schema (just copied from known_db for now)
+  sqlite3 "${UNKNOWN_M4_DBPATH}" <<-EOF || die "SQLite DB creation failed"
     CREATE table m4 (name TEXT, serial TEXT, plain_checksum TEXT, strip_checksum TEXT, repository TEXT, gitcommit TEXT, gitpath TEXT);
 EOF
 }
@@ -288,9 +305,42 @@ EOF
     )
 
     if [[ -z ${known_filename_query} ]] ; then
+      # We didn't see this filename before when indexing.
       NEW_MACROS+=( "${filename}" )
-      ewarn "$(printf "Found new macro %s\n" "${filename}")"
 
+      # Have we seen this filename before during this scan, even though
+      # it's not in our index?
+      unknown_macro_query=$(sqlite3 "${UNKNOWN_M4_DBPATH}" <<-EOF || die "SQLite query failed"
+        $(printf "SELECT name,serial,plain_checksum,strip_checksum,repository,gitcommit,gitpath FROM m4
+          WHERE name='%s'" \
+          "${filename}"
+        )
+EOF
+      )
+
+      if [[ -n "${unknown_macro_query}" ]] ; then
+        # We've seen this macro before during this scan, even though
+        # it wasn't in our index DB.
+        :;
+      else
+        ewarn "$(printf "Found new macro %s\n" "${filename}")"
+        # Keep a record of it in a separate DB, as we might
+        # see it a bunch of times while we're scanning, even
+        # though it wasn't in our index.
+        #
+        # TOOD: Do we want to check the checksums later on to see how many
+        # unique checksums we saw, or don't bother? Right now, we're only
+        # going to store the first serial we see for it, too.
+        sqlite3 "${UNKNOWN_M4_DBPATH}" <<-EOF || die "SQLite queries failed"
+          $(printf "INSERT INTO \
+            m4 (name, serial, plain_checksum, strip_checksum, repository, gitcommit, gitpath) \
+            VALUES ('%s', '%s', '%s', '%s', '%s', '%s', '%s');\n" \
+            "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}" "${repository:-NULL}" "${commit:-NULL}" "${path:-NULL}"
+          )
+EOF
+      fi
+
+      debug "[%s] Got serial %s with checksum %s stripped %s\n" "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}"
       continue
     fi
 
@@ -456,6 +506,11 @@ else
   einfo "Running in comparison mode..."
   [[ -f "${KNOWN_M4_DBPATH}" ]] || die "error: running in DB comparison mode but '${KNOWN_M4_DBPATH}' not found!"
 
+  einfo "Purging old (if any) unknown db..."
+  rm -v "${UNKNOWN_M4_DBPATH}"
+  einfo "Creating new unknown db..."
+  create_unknown_db
+
   # Which of these files are new?
   einfo "Finding macros in '${M4_DIR}' to compare..."
   find_macros "${M4_DIR}"
@@ -464,6 +519,7 @@ else
   compare_with_db
 
   printf "\n"
+  # TODO: Summarise unknowns here (hit count for each at least)
   if (( ${#NEW_MACROS} > 0 )) || (( ${#NEW_SERIAL_MACROS} > 0 )) || (( ${#BAD_MACROS} > 0 )) \
     || (( ${#BAD_SERIAL_MACROS} > 0 )) ; then
     einfo "Scanning complete. Summary below."
