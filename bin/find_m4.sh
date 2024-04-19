@@ -211,8 +211,8 @@ compare_with_db()
   local processed=0
   for file in "${M4_FILES[@]}" ; do
 
-    [[ $(( $processed % 1000 )) == 0 ]] && einfo "Compared $processed / ${#M4_FILES[@]} macro files"
-    let processed=$processed+1
+    [[ $(( ${processed} % 1000 )) == 0 ]] && einfo "Compared ${processed} / ${#M4_FILES[@]} macro files"
+    let processed=${processed}+1
 
     filename="${file##*/}"
     [[ ${filename} == @(aclocal.m4|acinclude.m4|m4sugar.m4) ]] && continue
