@@ -394,13 +394,13 @@ EOF
 
       if [[ ${expected_serial} == "${serial}" ]] ; then
         # We know this serial, so we can assert what its checksum ought to be.
-	if [[ ${expected_plain_checksum} == ${plain_checksum} ]]; then
-	  checksum_ok=plain
-	elif [[ ${expected_strip_checksum} == ${strip_checksum} ]]; then
-	  checksum_ok=strip
-	else
-	  checksum_ok=no
-	fi
+        if [[ ${expected_plain_checksum} == ${plain_checksum} ]]; then
+          checksum_ok=plain
+        elif [[ ${expected_strip_checksum} == ${strip_checksum} ]]; then
+          checksum_ok=strip
+        else
+          checksum_ok=no
+        fi
 
         debug "[%s] checksum_ok=%s\n" "${filename}" "${checksum_ok}"
 
