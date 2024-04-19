@@ -113,26 +113,6 @@ find_macros()
   mapfile -d '' M4_FILES < <(find "$@" -iname "*.m4" -type f -print0)
 }
 
-# Extract common stem (latter path components) from two paths.
-get_common_stem()
-{
-  local path_a=$1
-  local path_b=$2
-  local filename=$3
-  local strip_prefix=$4
-  # If we have /path/to/cache-a/foo/bar.baz /zoo/wee/cache-b/foo/bar.baz,
-  # we want to extract foo/baz.baz.
-  common_stem=$(printf "%s\n%s\n" "${path_a}" "${path_b}" | rev | sed -e 'N;s/^\(.*\).*\n\1.*$/\1/' | rev)
-  common_stem=${common_stem#/}
-  # Sometimes, we might have completely disjoint paths apart from the filename.
-  # In that case, take the repo path and just append the path to it relative to the repo.
-  if [[ ${common_stem} == "${filename}" ]] ; then
-    common_stem=${path_a##"${strip_prefix}"}
-    common_stem=${common_stem#/}
-  fi
-  echo "${common_stem}"
-}
-
 # Populate the DB with the contents of `M4_FILES`.
 populate_db()
 {
@@ -335,9 +315,8 @@ EOF
         expected_repository=${parsed_results[5]}
         expected_gitcommit=${parsed_results[6]}
         expected_gitpath=${parsed_results[7]}
-        common_stem=$(get_common_stem "${expected_gitpath}" "${file}" "${filename}" "${expected_repository}")
         ${cmd} "diff using:" $'\n\t' \
-          "git diff --no-index <(git -C "${expected_repository}" show "${expected_gitcommit}":${common_stem}) "${file}""
+          "git diff --no-index <(git -C "${expected_repository}" show "${expected_gitcommit}:${expected_gitpath}") '${file}'"
       }
 
       IFS='|' read -ra max_serial_seen_parsed <<< "${max_serial_seen_query}"
@@ -407,8 +386,6 @@ EOF
         if [[ ${checksum_ok} == no ]] ; then
           BAD_MACROS+=( "${file}" )
 
-          common_stem=$(get_common_stem "${expected_gitpath}" "${file}" "${filename}" "${expected_repository}")
-
           eerror "$(printf "Found mismatch in %s!\n"  "${filename}")"
           eindent
           eerror "$(printf "full path: %s\n" "${file}")"
@@ -420,7 +397,7 @@ EOF
             "${expected_strip_checksum}" "${strip_checksum}")"
 
           eerror "diff using:" $'\n\t' \
-               "git diff --no-index <(git -C "${expected_repository}" show "${expected_gitcommit}":${common_stem}) "${file}""
+               "git diff --no-index <(git -C "${expected_repository}" show "${expected_gitcommit}:${expected_gitpath}") '${file}'"
           eoutdent
 
           # No point in checking this one against other checksums
