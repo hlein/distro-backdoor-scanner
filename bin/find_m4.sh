@@ -12,6 +12,8 @@ die()
 
 COMMANDS=( cut find gawk git grep sha256sum sqlite3 )
 
+KNOWN_M4_DBPATH="known_m4.db"
+
 # Various locations, commands, etc. differ by distro
 
 OS_ID=$(sed -n -E 's/^ID="?([^ "]+)"? *$/\1/p' /etc/os-release 2>/dev/null)
@@ -98,9 +100,9 @@ extract_serial()
 # `strip_checksum` (SHA256), (checksum of comment-stripped contents)
 # `repository` (name of git repo)
 # `commit` (git commit in `repository`)
-create_db()
+create_known_db()
 {
-  sqlite3 m4.db <<-EOF || die "SQLite DB creation failed"
+  sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF || die "SQLite DB creation failed"
     CREATE table m4 (name TEXT, serial TEXT, plain_checksum TEXT, strip_checksum TEXT, repository TEXT, gitcommit TEXT, gitpath TEXT);
 EOF
 }
@@ -114,7 +116,7 @@ find_macros()
 }
 
 # Populate the DB with the contents of `M4_FILES`.
-populate_db()
+populate_known_db()
 {
   local queries=()
   local serial serial_int
@@ -171,7 +173,7 @@ populate_db()
     debug "[%s] Got serial %s with checksum %s stripped %s\n" "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}"
   done
 
-  sqlite3 m4.db <<-EOF || die "SQLite queries failed"
+  sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF || die "SQLite queries failed"
     PRAGMA synchronous = OFF;
     ${queries[@]}
 EOF
@@ -229,7 +231,7 @@ compare_with_db()
     #
     # TODO: This could be optimized by preloading it into an assoc array
     # ... and save many repeated forks & even queries (to avoid looking up same macro repeatedly)
-    known_checksum_query=$(sqlite3 m4.db <<-EOF || die "SQLite query failed"
+    known_checksum_query=$(sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF || die "SQLite query failed"
       $(printf "SELECT name,serial,plain_checksum,strip_checksum,repository,gitcommit,gitpath FROM m4
         WHERE plain_checksum='%s' OR strip_checksum='%s'" \
         "${plain_checksum}" "${strip_checksum}"
@@ -239,7 +241,7 @@ EOF
     # We've seen this checksum before. Is it for this filename?
     # TODO: can we simply parse this out of ${known_checksum_query}?
     if [[ -n ${known_checksum_query} ]] ; then
-      known_filename_by_checksum_query=$(sqlite3 m4.db <<-EOF || die "SQLite query failed"
+      known_filename_by_checksum_query=$(sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF || die "SQLite query failed"
         $(printf "SELECT name,serial,plain_checksum,strip_checksum,repository,gitcommit,gitpath FROM m4
           WHERE name='%s' AND (plain_checksum='%s' OR strip_checksum='%s')" \
           "${filename}" "${plain_checksum}" "${strip_checksum}"
@@ -275,7 +277,7 @@ EOF
     #
 
     # Is it a filename we've seen before?
-    known_filename_query=$(sqlite3 m4.db <<-EOF || die "SQLite query failed"
+    known_filename_query=$(sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF || die "SQLite query failed"
       $(printf "SELECT name,serial,plain_checksum,strip_checksum,repository,gitcommit,gitpath FROM m4
         WHERE name='%s'" \
         "${filename}"
@@ -298,7 +300,7 @@ EOF
     # Find the maximum serial number we've ever seen for this macro.
     # TODO: This could be optimized by preloading it into an assoc array
     # ... and save many repeated forks & queries (to avoid looking up same macro repeatedly)
-    max_serial_seen_query=$(sqlite3 m4.db <<-EOF || die "SQlite query failed"
+    max_serial_seen_query=$(sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF || die "SQlite query failed"
       SELECT MAX(CAST(serial AS INT)),name,serial,plain_checksum,strip_checksum,repository,gitcommit,gitpath FROM m4 WHERE name='${filename}';
 EOF
     )
@@ -353,7 +355,7 @@ EOF
     # We know this macro, but we may not recognize its checksum
     # or indeed serial number. Look up all the checksums for this
     # macro & serial.
-    known_macro_query=$(sqlite3 m4.db <<-EOF || die "SQlite query failed"
+    known_macro_query=$(sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF || die "SQlite query failed"
       SELECT name,serial,plain_checksum,strip_checksum,repository,gitcommit,gitpath FROM m4 WHERE name='${filename}';
 EOF
     )
@@ -436,21 +438,21 @@ if [[ ${MODE} == 0 ]] ; then
   fi
   einfo "Running in create mode, scraping ${label}"
 
-  if [[ -f m4.db ]] ; then
+  if [[ -f "${KNOWN_M4_DBPATH}" ]] ; then
     debug "Using existing database...\n"
   else
     debug "Creating database...\n"
-    create_db
+    create_known_db
   fi
 
   einfo "Finding macros to index..."
   find_macros "$@"
 
   einfo "Adding ${#M4_FILES[@]} macros to database..."
-  populate_db
+  populate_known_db
 else
   einfo "Running in comparison mode..."
-  [[ -f m4.db ]] || die "error: running in DB comparison mode but m4.db not found!"
+  [[ -f "${KNOWN_M4_DBPATH}" ]] || die "error: running in DB comparison mode but "${KNOWN_M4_DBPATH}" not found!"
 
   # Which of these files are new?
   einfo "Finding macros in '${M4_DIR}' to compare..."
