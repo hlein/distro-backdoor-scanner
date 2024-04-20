@@ -125,6 +125,25 @@ create_unknown_db()
 EOF
 }
 
+# Remember per-run unrecognized macros, so that we can then cross-ref
+# across all analyzed projects, find common matching unknowns, etc.
+record_unknown()
+{
+  local filename="$1"
+  local serial="$2"
+  local plain_checksum="$3"
+  local strip_checksum="$4"
+  local project_filepath="$5"
+
+  sqlite3 "${UNKNOWN_M4_DBPATH}" <<-EOF || die "SQLite queries failed"
+    $(printf "INSERT INTO \
+      m4 (name, serial, plain_checksum, strip_checksum, projectfile) \
+      VALUES ('%s', '%s', '%s', '%s', '%s');\n" \
+      "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}" "${project_filepath:-NULL}"
+    )
+EOF
+}
+
 # Search passed directories for M4 macros and populate `M4_FILES` with the result.
 find_macros()
 {
@@ -273,33 +292,22 @@ EOF
       for seen_filename in "${NEW_MACROS[@]}" ; do
         [[ ${seen_filename} == "${filename}" ]] && { filename_is_new=0; break; }
       done
-      # We've seen it before as an "unseen" macro, so not very interesting.
-      # TODO: adjust if we're going to do counts
-      [[ ${filename_is_new} == 0 ]] && continue
+      # We've seen it before as an "unseen" macro, so not very interesting,
+      # but remember we saw it in this project/path too.
+      if [[ ${filename_is_new} == 0 ]]; then
+        record_unknown "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}" "${project_filepath:-NULL}"
+        continue
+      fi
 
       # We didn't see this filename before when indexing.
       NEW_MACROS+=( "${filename}" )
 
       ewarn "$(printf "Found new macro %s\n" "${filename}")"
 
-      # Keep a record of it in a separate DB, as we might
-      # see it a bunch of times while we're scanning, even
-      # though it wasn't in our index.
-      #
-      # TODO: Do we want to check the checksums later on to see how many
-      # unique checksums we saw, or don't bother? Right now, we're only
-      # going to store the first serial we see for it, too.
-      sqlite3 "${UNKNOWN_M4_DBPATH}" <<-EOF || die "SQLite queries failed"
-        $(printf "INSERT INTO \
-          m4 (name, serial, plain_checksum, strip_checksum, projectfile) \
-          VALUES ('%s', '%s', '%s', '%s', '%s');\n" \
-          "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}" "${project_filepath:-NULL}"
-        )
-EOF
-
       debug "[%s] Got serial %s with checksum %s stripped %s\n" "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}"
 
       # This filename isn't in the index, so no point in carrying on.
+      record_unknown "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}" "${project_filepath:-NULL}"
       continue
     fi
 
@@ -333,7 +341,6 @@ EOF
 
         DIFF_CMDS+=( "git diff --no-index <(git -C "${expected_repository}" show "${expected_gitcommit}:${expected_gitpath}") '${file}'" )
         # We don't want to emit loads of diff commands for the same thing
-        # TODO: Make groups of packages which hit it? Store in the unseen DB?
         bad_checksums[${plain_checksum}]=1
         bad_checksums[${strip_checksum}]=1
       }
@@ -341,6 +348,7 @@ EOF
       # We don't want to emit loads of diff commands for the same thing
       # TODO: Make groups of packages which hit it? Store in the unseen DB?
       if [[ ${bad_checksums[${plain_checksum}]} == 1 || ${bad_checksums[${strip_checksum}]} == 1 ]] ; then
+        record_unknown "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}" "${project_filepath:-NULL}"
         continue
       fi
 
@@ -351,6 +359,7 @@ EOF
       delta=$(( max_serial_seen_int - serial_int ))
       absolute_delta=$(( delta >= 0 ? delta : -delta ))
 
+      # Call out large deltas at a higher priority
       if [[ ${delta} -lt -10 ]] ; then
         BAD_SERIAL_MACROS+=( "${filename}" )
 
@@ -410,6 +419,7 @@ EOF
 
         if [[ ${checksum_ok} == no ]] ; then
           BAD_MACROS+=( "${file}" )
+          record_unknown "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}" "${project_filepath:-NULL}"
 
           eerror "$(printf "Found mismatch in %s!\n"  "${filename}")"
           eindent
