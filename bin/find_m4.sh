@@ -117,13 +117,11 @@ EOF
 # `serial`
 # `plain_checksum` (SHA256),
 # `strip_checksum` (SHA256), (checksum of comment-stripped contents)
-# `repository` (name of git repo)
-# `commit` (git commit in `repository`)
+# `projectfile` (path under M4_DIR for this specific file, incl project dir)
 create_unknown_db()
 {
-  # TODO: Improve schema (just copied from known_db for now)
   sqlite3 "${UNKNOWN_M4_DBPATH}" <<-EOF || die "SQLite DB creation failed"
-    CREATE table m4 (name TEXT, serial TEXT, plain_checksum TEXT, strip_checksum TEXT, repository TEXT, gitcommit TEXT, gitpath TEXT);
+    CREATE table m4 (name TEXT, serial TEXT, plain_checksum TEXT, strip_checksum TEXT, projectfile TEXT);
 EOF
 }
 
@@ -235,6 +233,8 @@ EOF
     filename="${file##*/}"
     [[ ${filename} == @(aclocal.m4|acinclude.m4|m4sugar.m4) ]] && continue
 
+    project_filepath=${file#"${M4_DIR}"}
+
     serial=$(extract_serial "${file}")
     # XXX: What if it's a naughty .m4 file without a serial, as opposed to
     # e.g. SELinux's refpolicy/support/divert.m4?
@@ -278,18 +278,19 @@ EOF
       NEW_MACROS+=( "${filename}" )
 
       ewarn "$(printf "Found new macro %s\n" "${filename}")"
+
       # Keep a record of it in a separate DB, as we might
       # see it a bunch of times while we're scanning, even
       # though it wasn't in our index.
       #
-      # TOOD: Do we want to check the checksums later on to see how many
+      # TODO: Do we want to check the checksums later on to see how many
       # unique checksums we saw, or don't bother? Right now, we're only
       # going to store the first serial we see for it, too.
       sqlite3 "${UNKNOWN_M4_DBPATH}" <<-EOF || die "SQLite queries failed"
         $(printf "INSERT INTO \
-          m4 (name, serial, plain_checksum, strip_checksum, repository, gitcommit, gitpath) \
-          VALUES ('%s', '%s', '%s', '%s', '%s', '%s', '%s');\n" \
-          "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}" "${repository:-NULL}" "${commit:-NULL}" "${path:-NULL}"
+          m4 (name, serial, plain_checksum, strip_checksum, projectfile) \
+          VALUES ('%s', '%s', '%s', '%s', '%s');\n" \
+          "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}" "${project_filepath:-NULL}"
         )
 EOF
 
