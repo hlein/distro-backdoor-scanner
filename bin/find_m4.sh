@@ -99,7 +99,7 @@ extract_serial()
     serial="NULL"
   fi
   serial_int="${serial//[!0-9]/}"
-  [[ -z serial_int == "" ]] && serial_int=0
+  [[ -z serial_int ]] && serial_int=0
   [[ ${serial_int} != "${serial}" ]] && eerror "File '${file}': Non-numeric serial '${serial}', arithmetic ops will use '${serial_int}'"
 
   echo "${serial_int}" "${serial}"
