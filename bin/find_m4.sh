@@ -72,7 +72,7 @@ debug()
 extract_serial()
 {
   local file=$1
-  local serial
+  local serial serial_int
   local filename="${file##*/}"
 
   # https://www.gnu.org/software/automake/manual/html_node/Serials.html
@@ -93,7 +93,16 @@ extract_serial()
     serial="${serial#* }"
   fi
 
-  echo "${serial}"
+  # XXX: What if it's a naughty .m4 file without a serial, as opposed to
+  # e.g. SELinux's refpolicy/support/divert.m4?
+  if [[ -z ${serial} ]] ; then
+    serial="NULL"
+  fi
+  serial_int="${serial//[!0-9]/}"
+  [[ -z serial_int == "" ]] && serial_int=0
+  [[ ${serial_int} != "${serial}" ]] && eerror "File '${file}': Non-numeric serial '${serial}', arithmetic ops will use '${serial_int}'"
+
+  echo "${serial_int}" "${serial}"
 }
 
 # Initial creation of known M4 macros database.
@@ -171,15 +180,7 @@ populate_known_db()
     filename="${file##*/}"
     [[ ${filename} == @(aclocal.m4|acinclude.m4|m4sugar.m4) ]] && continue
 
-    serial=$(extract_serial "${file}")
-    # XXX: What if it's a naughty .m4 file without a serial, as opposed to
-    # e.g. SELinux's refpolicy/support/divert.m4?
-    if [[ -z ${serial} ]] ; then
-      serial="NULL"
-    fi
-    serial_int="${serial//[!0-9]/}"
-    [[ -z serial_int == "" ]] && serial_int=0
-    [[ ${serial_int} != "${serial}" ]] && eerror "File '${file}': Non-numeric serial '${serial}', arithmetic ops will use '${serial_int}'"
+    read -r serial_int serial <<< $(extract_serial "${file}")
 
     # TODO: Replace dirname calls with parameter expansion (or at least cache it...)
     repository=$(git -C "$(dirname "${file}")" rev-parse --show-toplevel 2>/dev/null || cat "${file}.gitrepo")
@@ -256,15 +257,7 @@ EOF
 
     project_filepath=${file#"${M4_DIR}"}
 
-    serial=$(extract_serial "${file}")
-    # XXX: What if it's a naughty .m4 file without a serial, as opposed to
-    # e.g. SELinux's refpolicy/support/divert.m4?
-    if [[ -z ${serial} ]] ; then
-      serial="NULL"
-    fi
-    serial_int="${serial//[!0-9]/}"
-    [[ -z serial_int == "" ]] && serial_int=0
-    [[ ${serial_int} != "${serial}" ]] && eerror "File '${file}': Non-numeric serial '${serial}', arithmetic ops will use '${serial_int}'"
+    read -r serial_int serial <<< $(extract_serial "${file}")
 
     plain_checksum=$(sha256sum "${file}" | cut -d' ' -f 1)
     strip_checksum=$(gawk '/changecom/{exit 77}; { gsub(/#.*/,""); gsub(/(^| )dnl.*/,"");}; /^ *$/{next}; {print};' "${file}" 2>/dev/null \
