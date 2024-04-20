@@ -156,9 +156,10 @@ populate_known_db()
     # XXX: What if it's a naughty .m4 file without a serial, as opposed to
     # e.g. SELinux's refpolicy/support/divert.m4?
     if [[ -z ${serial} ]] ; then
-      continue
+      serial="NULL"
     fi
     serial_int="${serial//[!0-9]/}"
+    [[ -z serial_int == "" ]] && serial_int=0
     [[ ${serial_int} != "${serial}" ]] && eerror "File '${file}': Non-numeric serial '${serial}', arithmetic ops will use '${serial_int}'"
 
     # TODO: Replace dirname calls with parameter expansion (or at least cache it...)
@@ -239,9 +240,10 @@ EOF
     # XXX: What if it's a naughty .m4 file without a serial, as opposed to
     # e.g. SELinux's refpolicy/support/divert.m4?
     if [[ -z ${serial} ]] ; then
-      continue
+      serial="NULL"
     fi
     serial_int="${serial//[!0-9]/}"
+    [[ -z serial_int == "" ]] && serial_int=0
     [[ ${serial_int} != "${serial}" ]] && eerror "File '${file}': Non-numeric serial '${serial}', arithmetic ops will use '${serial_int}'"
 
     plain_checksum=$(sha256sum "${file}" | cut -d' ' -f 1)
