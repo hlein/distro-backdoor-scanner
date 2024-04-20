@@ -213,15 +213,16 @@ compare_with_db()
   local query_result
   local delta absolute_delta
   local processed=0
-
   local known_filename known_filename_query
+
+  declare -A known_filenames=()
   declare -A bad_checksums=()
-  # Is it a filename we've seen before?
+
+  # Load up a list of all observed filenames, for future reference
   known_filename_query=$(sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF || die "SQLite query failed"
-    SELECT name FROM m4
+    SELECT DISTINCT name FROM m4
 EOF
   )
-  declare -A known_filenames=()
   for known_filename in ${known_filename_query} ; do
     known_filenames[${known_filename}]=1
   done
