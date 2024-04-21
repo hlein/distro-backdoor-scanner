@@ -1,8 +1,6 @@
 #!/bin/bash
 # TODO: Integrate with package_scan_all(?)
 # TODO: Avoid adding duplicate entries?
-# TODO: Should we add where we saw each macro too?
-# TODO: Record if we saw a bad checksum across multiple packages (notable anyway, but it makes it likely there's some alt. upstream or distro patches involved)
 
 die()
 {
@@ -309,11 +307,16 @@ EOF
       continue
     fi
 
+    #
+    # If we get here, this checksum is not known-good.
+    #
+
     if ! [[ ${known_filenames[${filename}]} ]] ; then
       # Have we seen this filename before during this scan, even though
       # it's not in our index?
       local seen_filename
       local filename_is_new=1
+      # TODO: optimize by using an assoc array?
       for seen_filename in "${NEW_MACROS[@]}" ; do
         [[ ${seen_filename} == "${filename}" ]] && { filename_is_new=0; break; }
       done
@@ -337,7 +340,7 @@ EOF
     fi
 
     #
-    # We've seen this filename before but it's got a new checksum
+    # If we get here, the filename is known but the checksum is new.
     #
 
     # Is it a new checksum for an existing known serial?
@@ -371,7 +374,6 @@ EOF
       }
 
       # We don't want to emit loads of diff commands for the same thing
-      # TODO: Make groups of packages which hit it? Store in the unseen DB?
       if [[ ${bad_checksums[${plain_checksum}]} == 1 || ${bad_checksums[${strip_checksum}]} == 1 ]] ; then
         record_unknown "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}" "${project_filepath:-NULL}"
         continue
@@ -430,6 +432,10 @@ EOF
       debug "[%s] Checking candidate w/ expected_serial=%s, expected_plain_checksum=%s, expected_strip_checksum=%s\n" \
         "${filename}" "${expected_serial}" "${expected_plain_checksum}" "${expected_strip_checksum}"
 
+      # TODO: In the case of multiple knowns for this file w/different
+      # serials & checksums, we are picking the first one with a serial
+      # match. That doesn't necessarily mean the closest content match.
+      # Add fuzzy hashes & find the candidate with the closest fuzzy hash?
       if [[ ${expected_serial} == "${serial}" ]] ; then
         # We know this serial, so we can assert what its checksum ought to be.
         if [[ ${expected_plain_checksum} == "${plain_checksum}" ]]; then
@@ -462,7 +468,6 @@ EOF
           DIFF_CMDS+=( "git diff --no-index <(git -C "${expected_repository}" show "${expected_gitcommit}:${expected_gitpath}") '${file}'" )
 
           # We don't want to emit loads of diff commands for the same thing
-          # TODO: Make groups of packages which hit it? Store in the unseen DB?
           bad_checksums[${plain_checksum}]=1
           bad_checksums[${strip_checksum}]=1
 
