@@ -55,7 +55,7 @@ if command -v find_m4.sh >/dev/null ; then
   FINDM4=find_m4.sh
 elif [[ -x "${BASH_SOURCE%/*}/find_m4.sh" ]]; then
   FINDM4="${BASH_SOURCE%/*}/find_m4.sh"
-  FINDM4=$(realpath "$FINDM4")
+  FINDM4=$(realpath "${FINDM4}")
 else
   die "Could not find find_m4.sh in PATH or '${BASH_SOURCE%/*}/'"
 fi
@@ -81,7 +81,7 @@ for gnu_repo in "${GNU_REPOS[@]}" ; do
   gnu_repo=${gnu_repo%.git}
   if [[ ! -d "${GNU_REPOS_TOPDIR}/${gnu_repo}" ]]; then
     einfo "Repo '${gnu_repo}' not found under '${GNU_REPOS_TOPDIR}', cloning"
-    if [[ ${warn_clone_abort} = 1 ]]; then
+    if [[ ${warn_clone_abort} == 1 ]]; then
       ewarn "Hit ^C within 5 seconds to abort"
       sleep 5
     fi
@@ -96,7 +96,7 @@ einfo "Checking for regular directories to be processed..."
 for dir in "${DIRS[@]}" ; do
   [[ -d "${dir}"/.git ]] && continue
   einfo "Processing .m4 files under ${dir##*/}..."
-  MODE=0 $FINDM4 "${dir}" || exit 1
+  MODE=0 ${FINDM4} "${dir}" || exit 1
 done
 
 CLEAN_DIRS=()
