@@ -242,8 +242,22 @@ compare_with_db()
   local processed=0
   local known_filename known_filename_query
 
+  declare -A valid_checksums=()
   declare -A known_filenames=()
   declare -A bad_checksums=()
+
+  # Load up a list of all known checksums, for future reference
+  known_checksum_query=$(sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF || die "SQLite lookup of known checksums failed"
+      SELECT DISTINCT plain_checksum,strip_checksum FROM m4
+EOF
+  )
+  for checksum in ${known_checksum_query} ; do
+    IFS='|' read -ra known_checksum_query_parsed <<< "${checksum}"
+    plain_checksum=${known_checksum_query_parsed[0]}
+    strip_checksum=${known_checksum_query_parsed[1]}
+    valid_checksums[${plain_checksum}]=1
+    valid_checksums[${strip_checksum}]=1
+  done
 
   # Load up a list of all observed filenames, for future reference
   known_filename_query=$(sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF || die "SQLite lookup of known names failed"
@@ -283,6 +297,18 @@ EOF
     debug "[%s] Got serial %s with checksum %s stripped %s\n" \
       "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}"
     debug "[%s] Checking database...\n" "${filename}"
+
+    # Have we seen this checksum before (stripped or otherwise)?
+    # If yes, it's only (mildly) interesting if it has a different name than we know it by.
+    # If not, we need to see if it's a known serial number or not.
+    local indexed_checksum=${valid_checksums[${plain_checksum}]} || ${valid_checksums[${strip_checksum}]} || 0
+
+    if [[ ${indexed_checksum} == 1 ]] ; then
+      # We know the checksum, we can move on.
+      # TODO: Should we mention if only stripped matched, not raw?
+      # TODO: Check if the filename and/or serial matched, make a note if they did not?
+      continue
+    fi
 
     if ! [[ ${known_filenames[${filename}]} ]] ; then
       # Have we seen this filename before during this scan, even though
