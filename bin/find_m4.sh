@@ -174,8 +174,6 @@ populate_known_db()
   local plain_checksum strip_checksum
   local processed=0
 
-  local seen_checksums=()
-
   for file in "${M4_FILES[@]}" ; do
 
     [[ $(( ${processed} % 1000 )) == 0 ]] && einfo "Processed ${processed} / ${#M4_FILES[@]} macro files"
