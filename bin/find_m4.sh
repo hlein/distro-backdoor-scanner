@@ -93,14 +93,16 @@ extract_serial()
     serial="${serial#* }"
   fi
 
-  # XXX: What if it's a naughty .m4 file without a serial, as opposed to
-  # e.g. SELinux's refpolicy/support/divert.m4?
+  # Fallbacks and warnings in case of no/bad serial number
   if [[ -z ${serial} ]] ; then
     serial="NULL"
+    serial_int=0
+    ewarn "File '${file}': No serial found, recording 'NULL' and for arithmetic ops using '0'"
+  else
+    serial_int="${serial//[!0-9]/}"
+    [[ -z ${serial_int} ]] && serial_int=0
+    [[ ${serial_int} != "${serial}" ]] && eerror "File '${file}': Non-numeric serial '${serial}', arithmetic ops will use '${serial_int}'"
   fi
-  serial_int="${serial//[!0-9]/}"
-  [[ -z serial_int ]] && serial_int=0
-  [[ ${serial_int} != "${serial}" ]] && eerror "File '${file}': Non-numeric serial '${serial}', arithmetic ops will use '${serial_int}'"
 
   echo "${serial_int}" "${serial}"
 }
@@ -181,6 +183,9 @@ populate_known_db()
     [[ ${filename} == @(aclocal.m4|acinclude.m4|m4sugar.m4) ]] && continue
 
     read -r serial_int serial <<< $(extract_serial "${file}")
+
+    # TODO: we used to skip files w/no serial, should we again?
+    # [[ ${serial} == NULL ]] && continue
 
     # TODO: Replace dirname calls with parameter expansion (or at least cache it...)
     repository=$(git -C "$(dirname "${file}")" rev-parse --show-toplevel 2>/dev/null || cat "${file}.gitrepo")
@@ -349,6 +354,7 @@ EOF
       max_serial_seen=${max_serial_seen_parsed[2]}
       # What even are numbers
       max_serial_seen_int="${max_serial_seen//[!0-9]/}"
+      [[ -z ${max_serial_seen_int} ]] && max_serial_seen_int=0
       delta=$(( max_serial_seen_int - serial_int ))
       absolute_delta=$(( delta >= 0 ? delta : -delta ))
 
