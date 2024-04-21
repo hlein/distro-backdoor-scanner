@@ -237,7 +237,6 @@ compare_with_db()
   local file filename
   local max_serial_seen max_serial_seen_int serial serial_int
   local plain_checksum strip_checksum
-  local query_result
   local delta absolute_delta
   local processed=0
   local known_filename known_filename_query
@@ -445,7 +444,6 @@ EOF
 
         if [[ ${checksum_ok} == no ]] ; then
           BAD_MACROS+=( "${file}" )
-          record_unknown "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}" "${project_filepath:-NULL}"
 
           eerror "$(printf "Found mismatch in %s!\n"  "${filename}")"
           eindent
@@ -473,8 +471,8 @@ EOF
         fi
       fi
     done
-
-    debug "[%s] Got %s\n" "${filename}" "${query_result}"
+    record_unknown "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}" "${project_filepath:-NULL}"
+    debug "[%s] Got %s\n" "${filename}" "unknown"
   done
 }
 
