@@ -316,21 +316,16 @@ EOF
     if ! [[ ${known_filenames[${filename}]} ]] ; then
       # Have we seen this filename before during this scan, even though
       # it's not in our index?
-      local seen_filename
-      local filename_is_new=1
-      # TODO: optimize by using an assoc array?
-      for seen_filename in "${NEW_MACROS[@]}" ; do
-        [[ ${seen_filename} == "${filename}" ]] && { filename_is_new=0; break; }
-      done
+      #
       # We've seen it before as an "unseen" macro, so not very interesting,
       # but remember we saw it in this project/path too.
-      if [[ ${filename_is_new} == 0 ]]; then
+      if [[ ${NEW_MACROS[${filename}]} ]] ; then
         record_unknown "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}" "${project_filepath:-NULL}"
         continue
       fi
 
       # We didn't see this filename before when indexing.
-      NEW_MACROS+=( "${filename}" )
+      NEW_MACROS[${filename}]=1
 
       ewarn "$(printf "Found new macro %s\n" "${filename}")"
 
@@ -495,6 +490,8 @@ done
 # set DEBUG: very noisy
 #DEBUG=1
 
+declare -Ag NEW_MACROS=()
+
 M4_FILES=()
 NEW_MACROS=()
 NEW_SERIAL_MACROS=()
@@ -540,11 +537,11 @@ else
 
   printf "\n"
   # TODO: Summarise unknowns here (hit count for each at least)
-  if (( ${#NEW_MACROS} > 0 )) || (( ${#NEW_SERIAL_MACROS} > 0 )) || (( ${#BAD_MACROS} > 0 )) \
+  if (( ${#NEW_MACROS[@]} > 0 )) || (( ${#NEW_SERIAL_MACROS} > 0 )) || (( ${#BAD_MACROS} > 0 )) \
     || (( ${#BAD_SERIAL_MACROS} > 0 )) || (( ${#DIFF_CMDS} > 0 )) ; then
     einfo "Scanning complete. Summary below."
 
-    (( ${#NEW_MACROS} > 0 )) && ewarn "New macros: ${NEW_MACROS[*]}"
+    (( ${#NEW_MACROS[@]} > 0 )) && ewarn "New macros: ${!NEW_MACROS[*]}"
     (( ${#NEW_SERIAL_MACROS} > 0 )) && ewarn "Updated macros: ${NEW_SERIAL_MACROS[*]}"
 
     (( ${#BAD_MACROS} > 0 )) && eerror "Miscompared macros: ${BAD_MACROS[*]}"
