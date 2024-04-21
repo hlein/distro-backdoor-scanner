@@ -115,10 +115,11 @@ extract_serial()
 # `commit` (git commit in `repository`)
 create_known_db()
 {
-  sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF || die "SQLite ${KNOWN_M4_DBPATH} DB creation failed"
+  sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF | grep -v '^wal$'
     PRAGMA journal_mode=WAL;
     CREATE table m4 (name TEXT, serial TEXT, plain_checksum TEXT, strip_checksum TEXT, repository TEXT, gitcommit TEXT, gitpath TEXT);
 EOF
+  [[ ${PIPESTATUS[0]} == 0 ]] || die "SQLite ${KNOWN_M4_DBPATH} DB creation failed"
 }
 
 # Initial creation of unknown M4 macros database.
@@ -130,10 +131,11 @@ EOF
 # `projectfile` (path under M4_DIR for this specific file, incl project dir)
 create_unknown_db()
 {
-  sqlite3 "${UNKNOWN_M4_DBPATH}" <<-EOF || die "SQLite ${UNKNOWN_M4_DBPATH} DB creation failed"
+  sqlite3 "${UNKNOWN_M4_DBPATH}" <<-EOF | grep -v '^wal$'
     PRAGMA journal_mode=WAL;
     CREATE table m4 (name TEXT, serial TEXT, plain_checksum TEXT, strip_checksum TEXT, projectfile TEXT);
 EOF
+  [[ ${PIPESTATUS[0]} == 0 ]] || die "SQLite ${UNKNOWN_M4_DBPATH} DB creation failed"
 }
 
 # Remember per-run unrecognized macros, so that we can then cross-ref
