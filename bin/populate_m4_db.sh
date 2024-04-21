@@ -160,7 +160,7 @@ for dir in "${DIRS[@]}" ; do
       fi
     done
 
-    [[ ${do_serial_check} == 0 ]] && batch_dirs+=( "${temp}" )
+    batch_dirs+=( "${temp}" )
   done < <(git -C "${dir}" log --diff-filter=ACMR --date-order --reverse --format='| %ad %H' --name-status --date=iso-strict -- '*.m4')
 
   MODE=0 ${FINDM4} "${batch_dirs[@]}" || die
