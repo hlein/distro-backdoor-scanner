@@ -182,6 +182,7 @@ populate_known_db()
     let processed=${processed}+1
 
     filename="${file##*/}"
+    dirname="${file%/*}"
     [[ ${filename} == @(aclocal.m4|acinclude.m4|m4sugar.m4) ]] && continue
 
     read -r serial_int serial <<< $(extract_serial "${file}")
@@ -189,9 +190,8 @@ populate_known_db()
     # TODO: we used to skip files w/no serial, should we again?
     # [[ ${serial} == NULL ]] && continue
 
-    # TODO: Replace dirname calls with parameter expansion (or at least cache it...)
-    repository=$(git -C "$(dirname "${file}")" rev-parse --show-toplevel 2>/dev/null || cat "${file}.gitrepo")
-    commit=$(git -C "$(dirname "${file}")" rev-parse HEAD 2>/dev/null || cat "${file}.gitcommit")
+    repository=$(git -C "${dirname}" rev-parse --show-toplevel 2>/dev/null || cat "${file}.gitrepo")
+    commit=$(git -C "${dirname}" rev-parse HEAD 2>/dev/null || cat "${file}.gitcommit")
     path=$(cat "${file}".gitpath 2>/dev/null || echo "${file}")
 
     # Get the plain checksum, and if possible, comment-stripped checksum.
