@@ -10,6 +10,7 @@
 # Override w/env vars
 GNU_REPOS_TOPDIR="${GNU_REPOS_TOPDIR:-${HOME}/gnu-repos/}"
 GNU_REPOS_TOPURL="${GNU_REPOS_TOPURL:-https://git.savannah.gnu.org/r/}"
+NO_NET="${NO_NET:-0}"
 
 # GNU autotools project repos we will harvest .m4 files from.
 # TODO: Add support for specifying arbitrary repos/dirs to include
@@ -80,6 +81,7 @@ DIRS=()
 for gnu_repo in "${GNU_REPOS[@]}" ; do
   gnu_repo=${gnu_repo%.git}
   if [[ ! -d "${GNU_REPOS_TOPDIR}/${gnu_repo}" ]]; then
+    [[ ${NO_NET} != "0" ]] && die "Repo '${gnu_repo}' not found under '${GNU_REPOS_TOPDIR}' but NO_NET='${NO_NET}'"
     einfo "Repo '${gnu_repo}' not found under '${GNU_REPOS_TOPDIR}', cloning"
     if [[ ${warn_clone_abort} == 1 ]]; then
       ewarn "Hit ^C within 5 seconds to abort"
@@ -113,11 +115,8 @@ for dir in "${DIRS[@]}" ; do
 
   batch_dirs=()
 
-  # TODO: Is fetch actually sufficient here? If we're not using our own checkout,
-  # it's not going to update the state of it anyway, so by not using 'git pull',
-  # we're being non-destructive to any of the user's work, but also we're not
-  # getting any updates that we specifically wanted...
-  git -C "${dir}" fetch --all --tags || die "git fetch failed"
+  # Make sure we have the latest, unless NO_NET was set
+  [[ ${NO_NET} == "0" ]] && { git -C "${dir}" pull --tags || die "git pull failed"; }
 
   # TODO: Could this be parallelized, or does git do locking that
   # would defeat it?
