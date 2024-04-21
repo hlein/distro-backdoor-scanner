@@ -36,7 +36,7 @@ unalias tput
 
 cleanup()
 {
-  [[ ${#CLEAN_DIRS[@]} = 0 ]] && return
+  [[ ${#CLEAN_DIRS[@]} == 0 ]] && return
   einfo "Cleaning up ${#CLEAN_DIRS[@]} tmpdirs..."
   printf "%s\0" "${CLEAN_DIRS[@]}" | xargs -0 -I@ bash -c 'rm -f @/*.m4{,.gitcommit,.gitpath,.gitrepo} && rmdir @'
   CLEAN_DIRS=()
@@ -53,7 +53,7 @@ COMMANDS=( git grep mktemp realpath )
 
 if command -v find_m4.sh >/dev/null ; then
   FINDM4=find_m4.sh
-elif [ -x "${BASH_SOURCE%/*}/find_m4.sh" ]; then
+elif [[ -x "${BASH_SOURCE%/*}/find_m4.sh" ]]; then
   FINDM4="${BASH_SOURCE%/*}/find_m4.sh"
   FINDM4=$(realpath "$FINDM4")
 else
@@ -65,11 +65,11 @@ for COMMAND in "${COMMANDS[@]}" ; do
 done
 
 # If TMPDIR is set, force it to be an absolute path
-[ -n "$TMPDIR" ] && TMPDIR=$(realpath "$TMPDIR")
+[[ -n "${TMPDIR}" ]] && TMPDIR=$(realpath "${TMPDIR}")
 
 GNU_REPOS_TOPDIR="${GNU_REPOS_TOPDIR%/}/"
-[[ -d $GNU_REPOS_TOPDIR ]] || die "GNU_REPOS_TOPDIR directory '$GNU_REPOS_TOPDIR' does not exist"
-cd $GNU_REPOS_TOPDIR || die "chdir GNU_REPOS_TOPDIR directory '$GNU_REPOS_TOPDIR' failed"
+[[ -d ${GNU_REPOS_TOPDIR} ]] || die "GNU_REPOS_TOPDIR directory '${GNU_REPOS_TOPDIR}' does not exist"
+cd ${GNU_REPOS_TOPDIR} || die "chdir GNU_REPOS_TOPDIR directory '${GNU_REPOS_TOPDIR}' failed"
 
 GNU_REPOS_TOPURL="${GNU_REPOS_TOPURL%/}/"
 
@@ -80,8 +80,8 @@ DIRS=()
 for gnu_repo in "${GNU_REPOS[@]}" ; do
   gnu_repo=${gnu_repo%.git}
   if [[ ! -d "${GNU_REPOS_TOPDIR}/${gnu_repo}" ]]; then
-    einfo "Repo '$gnu_repo' not found under '${GNU_REPOS_TOPDIR}', cloning"
-    if [[ $warn_clone_abort = 1 ]]; then
+    einfo "Repo '${gnu_repo}' not found under '${GNU_REPOS_TOPDIR}', cloning"
+    if [[ ${warn_clone_abort} = 1 ]]; then
       ewarn "Hit ^C within 5 seconds to abort"
       sleep 5
     fi
@@ -163,7 +163,7 @@ for dir in "${DIRS[@]}" ; do
     [[ ${do_serial_check} == 0 ]] && batch_dirs+=( "${temp}" )
   done < <(git -C "${dir}" log --diff-filter=ACMR --date-order --reverse --format='| %ad %H' --name-status --date=iso-strict -- '*.m4')
 
-  MODE=0 $FINDM4 "${batch_dirs[@]}" || die
+  MODE=0 ${FINDM4} "${batch_dirs[@]}" || die
 
   # remove all tempdirs created for this repo
   cleanup
