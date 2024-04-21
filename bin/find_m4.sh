@@ -63,7 +63,7 @@ debug()
   [[ -n ${DEBUG} ]] || return
   # Deliberately treating this as a 'printf with debug check' function
   # shellcheck disable=2059
-  printf "$@"
+  printf "$@" >&2
 }
 
 # Extract M4 serial number from an M4 macro.
