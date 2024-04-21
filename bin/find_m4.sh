@@ -534,17 +534,33 @@ else
   compare_with_db
 
   printf "\n"
-  # TODO: Summarise unknowns here (hit count for each at least)
-  if (( ${#NEW_MACROS[@]} > 0 )) || (( ${#NEW_SERIAL_MACROS} > 0 )) || (( ${#BAD_MACROS} > 0 )) \
-    || (( ${#BAD_SERIAL_MACROS} > 0 )) || (( ${#DIFF_CMDS} > 0 )) ; then
-    einfo "Scanning complete. Summary below."
 
-    (( ${#NEW_MACROS[@]} > 0 )) && ewarn "New macros: ${!NEW_MACROS[*]}"
-    (( ${#NEW_SERIAL_MACROS} > 0 )) && ewarn "Updated macros: ${NEW_SERIAL_MACROS[*]}"
+  einfo "Scanning complete."
 
-    (( ${#BAD_MACROS} > 0 )) && eerror "Miscompared macros: ${BAD_MACROS[*]}"
-    (( ${#BAD_SERIAL_MACROS} > 0 )) && eerror "Significant serial diff. macros: ${BAD_SERIAL_MACROS[*]}"
+  einfo "Found ${#NEW_MACROS[@]} new m4, ${#NEW_SERIAL_MACROS[@]} new serial, ${#BAD_MACROS[@]} differing m4, ${#BAD_SERIAL_MACROS[@]} serial jumps, ${#DIFF_CMDS[@]} diff commands."
 
+  if (( ${#NEW_MACROS[@]} > 0 )) || (( ${#NEW_SERIAL_MACROS[@]} > 0 )) || (( ${#BAD_MACROS[@]} > 0 )) \
+    || (( ${#BAD_SERIAL_MACROS[@]} > 0 )) || (( ${#DIFF_CMDS[@]} > 0 )) ; then
+
+    # Sort our lists of new/modified/bad m4's
+
+    (( ${#NEW_MACROS[@]} > 0 )) && \
+		mapfile -d '' _sorted < <(printf '%s\0' "${!NEW_MACROS[@]}" | sort -z) && \
+		ewarn "New macros: ${_sorted[@]}"
+
+    (( ${#NEW_SERIAL_MACROS} > 0 )) && \
+		mapfile -d '' _sorted < <(printf '%s\0' "${NEW_SERIAL_MACROS[@]}" | sort -z) && \
+		ewarn "Updated macros: ${_sorted[@]}"
+
+    (( ${#BAD_MACROS} > 0 )) && \
+		mapfile -d '' _sorted < <(printf '%s\0' "${BAD_MACROS[@]}" | sort -z) && \
+		eerror "Miscompared macros: ${_sorted[@]}"
+
+    (( ${#BAD_SERIAL_MACROS} > 0 )) && \
+		mapfile -d '' _sorted < <(printf '%s\0' "${BAD_SERIAL_MACROS[*]}" | sort -z) && \
+		eerror "Significant serial diff. macros: ${_sorted[@]}"
+
+    # DIFF_CMDS is already in a logical order (grouped by project)
     (( ${#DIFF_CMDS} > 0 )) && {
       eerror "Collected diff cmds for review:" ;
       printf "%s\n" "${DIFF_CMDS[@]}" ;
