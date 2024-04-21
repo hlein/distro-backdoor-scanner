@@ -182,8 +182,8 @@ populate_known_db()
     let processed=${processed}+1
 
     filename="${file##*/}"
-    dirname="${file%/*}"
     [[ ${filename} == @(aclocal.m4|acinclude.m4|m4sugar.m4) ]] && continue
+    dirname="${file%/*}"
 
     read -r serial_int serial <<< $(extract_serial "${file}")
 
