@@ -117,7 +117,8 @@ extract_serial()
 # `commit` (git commit in `repository`)
 create_known_db()
 {
-  sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF || die "SQLite DB creation failed"
+  sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF || die "SQLite ${KNOWN_M4_DBPATH} DB creation failed"
+    PRAGMA journal_mode=WAL;
     CREATE table m4 (name TEXT, serial TEXT, plain_checksum TEXT, strip_checksum TEXT, repository TEXT, gitcommit TEXT, gitpath TEXT);
 EOF
 }
@@ -131,7 +132,8 @@ EOF
 # `projectfile` (path under M4_DIR for this specific file, incl project dir)
 create_unknown_db()
 {
-  sqlite3 "${UNKNOWN_M4_DBPATH}" <<-EOF || die "SQLite DB creation failed"
+  sqlite3 "${UNKNOWN_M4_DBPATH}" <<-EOF || die "SQLite ${UNKNOWN_M4_DBPATH} DB creation failed"
+    PRAGMA journal_mode=WAL;
     CREATE table m4 (name TEXT, serial TEXT, plain_checksum TEXT, strip_checksum TEXT, projectfile TEXT);
 EOF
 }
@@ -146,8 +148,8 @@ record_unknown()
   local strip_checksum="$4"
   local project_filepath="$5"
 
-  sqlite3 "${UNKNOWN_M4_DBPATH}" <<-EOF || die "SQLite queries failed"
-    $(printf "INSERT INTO \
+  sqlite3 "${UNKNOWN_M4_DBPATH}" <<-EOF || die "SQLite insert into ${UNKNOWN_M4_DBPATH} failed"
+    $(printf "PRAGMA synchronous = OFF;\nINSERT INTO \
       m4 (name, serial, plain_checksum, strip_checksum, projectfile) \
       VALUES ('%s', '%s', '%s', '%s', '%s');\n" \
       "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}" "${project_filepath:-NULL}"
@@ -221,7 +223,7 @@ populate_known_db()
     debug "[%s] Got serial %s with checksum %s stripped %s\n" "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}"
   done
 
-  sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF || die "SQLite queries failed"
+  sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF || die "SQLite batched insert into ${KNOWN_M4_DBPATH} failed"
     PRAGMA synchronous = OFF;
     ${queries[@]}
 EOF
@@ -244,7 +246,7 @@ compare_with_db()
   declare -A bad_checksums=()
 
   # Load up a list of all observed filenames, for future reference
-  known_filename_query=$(sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF || die "SQLite query failed"
+  known_filename_query=$(sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF || die "SQLite lookup of known names failed"
     SELECT DISTINCT name FROM m4
 EOF
   )
@@ -317,7 +319,7 @@ EOF
     # Find the maximum serial number we've ever seen for this macro.
     # TODO: This could be optimized by preloading it into an assoc array
     # ... and save many repeated forks & queries (to avoid looking up same macro repeatedly)
-    max_serial_seen_query=$(sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF || die "SQLite query failed"
+    max_serial_seen_query=$(sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF || die "SQLite lookup of max serial for '${filename}'  failed"
       SELECT MAX(CAST(serial AS INT)),name,serial,plain_checksum,strip_checksum,repository,gitcommit,gitpath FROM m4 WHERE name='${filename}';
 EOF
     )
@@ -383,10 +385,9 @@ EOF
       fi
     fi
 
-    # We know this macro, but we may not recognize its checksum
-    # or indeed serial number. Look up all the checksums for this
-    # macro & serial.
-    known_macro_query=$(sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF || die "SQLite query failed"
+    # We know this filename, but not its checksum and maybe not serial number.
+    # Look up all the checksums for this macro & serial.
+    known_macro_query=$(sqlite3 "${KNOWN_M4_DBPATH}" <<-EOF || die "SQLite lookup of known records for '${filename}' failed"
       SELECT name,serial,plain_checksum,strip_checksum,repository,gitcommit,gitpath FROM m4 WHERE name='${filename}';
 EOF
     )
