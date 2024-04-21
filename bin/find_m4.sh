@@ -97,7 +97,7 @@ extract_serial()
   if [[ -z ${serial} ]] ; then
     serial="NULL"
     serial_int=0
-    ewarn "File '${file}': No serial found, recording 'NULL' and for arithmetic ops using '0'"
+    debug "[%s] No serial found, recording 'NULL' and for arithmetic ops using '0'\n" "${filename}"
   else
     serial_int="${serial//[!0-9]/}"
     [[ -z ${serial_int} ]] && serial_int=0
