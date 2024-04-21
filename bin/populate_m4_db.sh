@@ -113,6 +113,10 @@ for dir in "${DIRS[@]}" ; do
 
   batch_dirs=()
 
+  # TODO: Is fetch actually sufficient here? If we're not using our own checkout,
+  # it's not going to update the state of it anyway, so by not using 'git pull',
+  # we're being non-destructive to any of the user's work, but also we're not
+  # getting any updates that we specifically wanted...
   git -C "${dir}" fetch --all --tags || die "git fetch failed"
 
   # TODO: Could this be parallelized, or does git do locking that
@@ -160,6 +164,7 @@ for dir in "${DIRS[@]}" ; do
       fi
     done
 
+    # TODO: Could change this so it only runs if we found at least one file?
     batch_dirs+=( "${temp}" )
   done < <(git -C "${dir}" log --diff-filter=ACMR --date-order --reverse --format='| %ad %H' --name-status --date=iso-strict -- '*.m4')
 
