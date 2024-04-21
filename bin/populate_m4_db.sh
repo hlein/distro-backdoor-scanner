@@ -147,7 +147,6 @@ for dir in "${DIRS[@]}" ; do
 
     temp=$(mktemp -d)
     CLEAN_DIRS+=( "${temp}" )
-    do_serial_check=1
     for file in "${files[@]}" ; do
       filename=${file##*/}
       echo "${dir}" > "${temp}"/${filename}.gitrepo
@@ -155,16 +154,8 @@ for dir in "${DIRS[@]}" ; do
       echo "${file#${dir}}" > "${temp}"/${filename}.gitpath
 
       git -C "${dir}" cat-file -p "${commit}:${file}" > "${temp}"/${filename}
-
-      # Don't bother calling find_m4.sh if we didn't find any
-      # .m4 files with a serial number in this batch.
-      if [[ ${do_serial_check} == 1 ]] && grep -q "serial" "${temp}"/${filename} ; then
-        # We found one which is good enough, so don't grep again.
-        do_serial_check=0
-      fi
     done
 
-    # TODO: Could change this so it only runs if we found at least one file?
     batch_dirs+=( "${temp}" )
   done < <(git -C "${dir}" log --diff-filter=ACMR --date-order --reverse --format='| %ad %H' --name-status --date=iso-strict -- '*.m4')
 
