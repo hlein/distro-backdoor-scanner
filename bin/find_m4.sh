@@ -48,7 +48,7 @@ M4_DIR="${M4_DIR:-${UNPACK_DIR}}"
 
 shopt -s expand_aliases
 alias tput=false
-. /lib/gentoo/functions.sh || {
+test -f /lib/gentoo/functions.sh && . /lib/gentoo/functions.sh || {
   # Stubs for non-Gentoo systems
   eerror() { echo "$@"; }
   ewarn() { echo "$@"; }
