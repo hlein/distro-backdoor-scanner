@@ -304,6 +304,7 @@ EOF
       # We know the checksum, we can move on.
       # TODO: Should we mention if only stripped matched, not raw?
       # TODO: Check if the filename and/or serial matched, make a note if they did not?
+      let MATCH_COUNT=${MATCH_COUNT}+1
       continue
     fi
 
@@ -496,6 +497,7 @@ NEW_SERIAL_MACROS=()
 BAD_MACROS=()
 BAD_SERIAL_MACROS=()
 DIFF_CMDS=()
+MATCH_COUNT=0
 
 if [[ ${MODE} == 0 ]] ; then
   if [ "$#" -le 3 ]; then
@@ -537,7 +539,7 @@ else
 
   einfo "Scanning complete."
 
-  einfo "Found ${#NEW_MACROS[@]} new m4, ${#NEW_SERIAL_MACROS[@]} new serial, ${#BAD_MACROS[@]} differing m4, ${#BAD_SERIAL_MACROS[@]} serial jumps, ${#DIFF_CMDS[@]} diff commands."
+  einfo "Found ${MATCH_COUNT} matched m4, ${#NEW_MACROS[@]} new m4, ${#NEW_SERIAL_MACROS[@]} new serial, ${#BAD_MACROS[@]} differing m4, ${#BAD_SERIAL_MACROS[@]} serial jumps, ${#DIFF_CMDS[@]} diff commands."
 
   if (( ${#NEW_MACROS[@]} > 0 )) || (( ${#NEW_SERIAL_MACROS[@]} > 0 )) || (( ${#BAD_MACROS[@]} > 0 )) \
     || (( ${#BAD_SERIAL_MACROS[@]} > 0 )) || (( ${#DIFF_CMDS[@]} > 0 )) ; then
