@@ -7,8 +7,6 @@
 
 - More search patterns
 
-- Better (any) usage documentation
-
 - Add example output, triaging of false-positives
 
 - Add command-line knobs
@@ -18,11 +16,10 @@
 - Smartly (re)scan different phases - after fresh unpack, then after
   applying distro patches; this will differ by distro
 
-- Analyze `.m4` files bundled with individual packages looking for
-  ones that are copies from some upstream (autoconf, automake, etc.)
-  _and_ which have been modified, with or without updating the
-  serial number; look into those mods. Work ongoing in
-  [this branch](https://github.com/hlein/distro-backdoor-scanner/compare/master...thesamesam:m4)
+- Add fuzzy matching
+  ([ssdeep](https://ssdeep-project.github.io/ssdeep/index.html) or
+  similar) in `.m4` processing to find the best/closest reference
+  match for new or modified `.m4` files.
 
 - Compare &amp; explore the differences between git-tagged versions
   (retrievable as generated archives from e.g. GitHub) and Release
