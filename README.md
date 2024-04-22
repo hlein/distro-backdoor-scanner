@@ -11,7 +11,21 @@ other projects? Can we detect the style/"fist" of the author
 elsewhere? Moreso the delivery mechanics - backdooring codebases -
 than the contents of the extracted+injected malicious `.so`.
 
-`package_unpack_all.sh` &amp; `package_scan_all.sh`:
+There need to be more search patterns, among other things; see
+[TODO](TODO.md).
+
+Distros supported:
+- Gentoo Linux: Works
+- Rocky/RHEL/CentOS Linux: Works
+- Debian/Devuan/Ubuntu Linux: Works
+- EndeavourOS/Arch: Todo, PRs welcome
+
+## Checking distfiles
+
+Tools:
+* `package_unpack_all.sh`
+* `package_scan_all.sh`
+
 These scripts unpack the source packages for all of a distro repo's
 current packages, then scan them for content similar to the malware
 that was added to `xz-utils`.
@@ -21,7 +35,12 @@ Running over the unpacked source trees of ~19k Gentoo packages and
 of hits), digestable by a human. So far the only confirmed malicious
 results are... from the backdoored `xz-utils` versions.
 
-`populate_m4_db.sh` &amp; `find_m4.sh`:
+## Checking M4 macros
+
+Tools:
+* `populate_m4_db.sh`
+* `find_m4.sh`
+
 These scripts harvest every iteration of every `.m4` macro file ever
 committed to some specific repos considered "known good" (if, say, GNU
 `automake` upstream has already been trojaned, then the preppers were
@@ -46,7 +65,11 @@ Running over the source trees of ~19k Gentoo packages containing 50k
 That number should shrink if more popular upstreams are added to the
 "known good" corpus.
 
-`package_decompcheck_all.sh`:
+## Comparing decompression output
+
+Tools:
+* `package_decompcheck_all.sh`
+
 Compare the output of the backdoored `xz-utils` decompressing
 a large corpus of `.xz` files vs the output of an independent
 implementation, just in case of some fancy
@@ -56,12 +79,3 @@ tarred-up code is decompressed. Verrry unlikely to catch something,
 but easy to look for so why not. So far this has only caught minor
 bugs in other decompressors (upstream bugs will be filed, but not
 urgent).
-
-There need to be more search patterns, among other things; see
-[TODO](TODO.md).
-
-Distros supported:
-- Gentoo Linux: Works
-- Rocky/RHEL/CentOS Linux: Works
-- Debian/Devuan/Ubuntu Linux: Works
-- EndeavourOS/Arch: Todo, PRs welcome
