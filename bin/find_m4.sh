@@ -188,11 +188,12 @@ EOF
 # `plain_checksum` (SHA256),
 # `strip_checksum` (SHA256), (checksum of comment-stripped contents)
 # `projectfile` (path under M4_DIR for this specific file, incl project dir)
+# `reason` (what kind of check led to us adding it here)
 create_unknown_db()
 {
   sqlite3 "${UNKNOWN_M4_DBPATH}" <<-EOF | grep -v '^wal$'
     PRAGMA journal_mode=WAL;
-    CREATE table m4 (name TEXT, serial TEXT, plain_checksum TEXT, strip_checksum TEXT, projectfile TEXT);
+    CREATE table m4 (name TEXT, serial TEXT, plain_checksum TEXT, strip_checksum TEXT, projectfile TEXT, reason TEXT);
 EOF
   [[ ${PIPESTATUS[0]} == 0 ]] || die "SQLite ${UNKNOWN_M4_DBPATH} DB creation failed"
 }
@@ -206,12 +207,13 @@ record_unknown()
   local plain_checksum="$3"
   local strip_checksum="$4"
   local project_filepath="$5"
+  local reason="$6"
 
   sqlite3 "${UNKNOWN_M4_DBPATH}" <<-EOF || die "SQLite insert into ${UNKNOWN_M4_DBPATH} failed"
     $(printf "PRAGMA synchronous = OFF;\nINSERT INTO \
-      m4 (name, serial, plain_checksum, strip_checksum, projectfile) \
-      VALUES ('%s', '%s', '%s', '%s', '%s');\n" \
-      "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}" "${project_filepath:-NULL}"
+      m4 (name, serial, plain_checksum, strip_checksum, projectfile, reason) \
+      VALUES ('%s', '%s', '%s', '%s', '%s', '%s');\n" \
+      "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}" "${project_filepath:-NULL}" "${reason}"
     )
 EOF
 }
@@ -357,7 +359,7 @@ EOF
       # We've seen it before as an "unseen" macro, so not very interesting,
       # but remember we saw it in this project/path too.
       if [[ ${NEW_MACROS[${filename}]} ]] ; then
-        record_unknown "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}" "${project_filepath:-NULL}"
+        record_unknown "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}" "${project_filepath:-NULL}" "unknown-repeat"
         continue
       fi
 
@@ -369,7 +371,7 @@ EOF
       debug "[%s] Got serial %s with checksum %s stripped %s\n" "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}"
 
       # This filename isn't in the index, so no point in carrying on.
-      record_unknown "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}" "${project_filepath:-NULL}"
+      record_unknown "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}" "${project_filepath:-NULL}" "new-filename"
       continue
     fi
 
@@ -408,7 +410,7 @@ EOF
 
       # We don't want to emit loads of diff commands for the same thing
       if [[ ${bad_checksums[${plain_checksum}]} == 1 || ${bad_checksums[${strip_checksum}]} == 1 ]] ; then
-        record_unknown "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}" "${project_filepath:-NULL}"
+        record_unknown "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}" "${project_filepath:-NULL}" "known-bad-checksum"
         continue
       fi
 
@@ -504,7 +506,7 @@ EOF
         fi
       fi
     done
-    record_unknown "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}" "${project_filepath:-NULL}"
+    record_unknown "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}" "${project_filepath:-NULL}" "new-serial"
     debug "[%s] Got %s\n" "${filename}" "unknown"
   done
 }
