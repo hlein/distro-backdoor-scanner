@@ -3,9 +3,11 @@ TARGETS := $(shell cat .targets 2>/dev/null)
 BIN_DIR=/usr/local/bin
 
 BIN_FILES=\
+	find_m4.sh		\
 	package_decompcheck_all.sh	\
 	package_scan_all.sh	\
 	package_unpack_all.sh	\
+	populate_m4_db.sh	\
 
 install:
 	@mkdir -p $(BIN_DIR) && \
@@ -33,5 +35,6 @@ diff:
 
 dist:
 	@for TARGET in $(TARGETS) ; do \
+	  echo DEST: $${TARGET} ; \
 	  rsync -aP Makefile bin/* $${TARGET}: ; \
 	done
