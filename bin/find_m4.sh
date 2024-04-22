@@ -144,12 +144,13 @@ make_stripped_checksum()
 {
   local file="$1"
   local plain_checksum="$2"
+  local strip_checksum
 
   # TODO: dnl can follow something other than whitespace, like
   # foo)dnl, bar]dnl. Broaden our match? We'd have to restore or
   # not consume such chars, unlike the whitespace we currently consume
 
-  local strip_checksum=$(gawk '/changecom/{exit 77}; { gsub(/#.*/,""); gsub(/(^| )dnl.*/,"");}; /^ *$/{next}; {print};' "${file}" 2>/dev/null \
+  strip_checksum=$(gawk '/changecom/{exit 77}; { gsub(/#.*/,""); gsub(/(^| )dnl.*/,"");}; /^ *$/{next}; {print};' "${file}" 2>/dev/null \
 	| sha256sum - \
 	| cut -d' ' -f1 ; \
 	exit ${PIPESTATUS[0]})
