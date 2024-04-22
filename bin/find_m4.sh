@@ -400,7 +400,7 @@ EOF
         expected_gitpath=${parsed_results[7]}
         verbose ${cmd} "diff using:"$'\n\t'"git diff --no-index <(git -C ${expected_repository} show '${expected_gitcommit}:${expected_gitpath}') '${file}'"
 
-        DIFF_CMDS+=( "git diff --no-index <(git -C ${expected_repository} show '${expected_gitcommit}:${expected_gitpath}') '${file}' # discontinuity" )
+        DIFF_CMDS[${strip_checksum}]="git diff --no-index <(git -C ${expected_repository} show '${expected_gitcommit}:${expected_gitpath}') '${file}' # discontinuity"
         # We don't want to emit loads of diff commands for the same thing
         bad_checksums[${plain_checksum}]=1
         bad_checksums[${strip_checksum}]=1
@@ -493,7 +493,7 @@ EOF
 			        "${expected_strip_checksum}" "${strip_checksum}")" \
 		        "diff using:"$'\n\t'"git diff --no-index <(git -C ${expected_repository} show '${expected_gitcommit}:${expected_gitpath}') '${file}'"
 
-          DIFF_CMDS+=( "git diff --no-index <(git -C ${expected_repository} show '${expected_gitcommit}:${expected_gitpath}') '${file}' # mismatch" )
+          DIFF_CMDS[${strip_checksum}]="git diff --no-index <(git -C ${expected_repository} show '${expected_gitcommit}:${expected_gitpath}') '${file}' # mismatch"
 
           # We don't want to emit loads of diff commands for the same thing
           bad_checksums[${plain_checksum}]=1
@@ -517,14 +517,13 @@ done
 # MODE=1: search against the db
 : "${MODE:=0}"
 
-declare -Ag NEW_MACROS=()
+declare -Ag NEW_MACROS=() DIFF_CMDS=()
 
 M4_FILES=()
 NEW_MACROS=()
 NEW_SERIAL_MACROS=()
 BAD_MACROS=()
 BAD_SERIAL_MACROS=()
-DIFF_CMDS=()
 MATCH_COUNT=0
 
 if [[ ${MODE} == 0 ]] ; then
@@ -591,7 +590,7 @@ else
 		eerror "Significant serial diff. macros: ${_sorted[@]}"
 
     # DIFF_CMDS is already in a logical order (grouped by project)
-    (( ${#DIFF_CMDS} > 0 )) && {
+    (( ${#DIFF_CMDS[@]} > 0 )) && {
       eerror "Collected diff cmds for review:" ;
       printf "%s\n" "${DIFF_CMDS[@]}" ;
     }
