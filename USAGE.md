@@ -42,16 +42,17 @@ Typical use:
 
 Has some variables which can be overriden on the command line:
 
-* `GNU_REPOS_TOPDIR`: path to where "known good" Git repos are checked
+* `KNOWN_REPOS_TOPDIR`: path to where "known good" Git repos are checked
 out.
-* `GNU_REPOS_TOPURL`: common URL prefix for "known good" repos.
+* `GNU_REPOS_TOPDIR`: path to where "known good" GNU Git repos are checked out.
+* `GNU_REPOS_TOPURL`: common URL prefix for "known good" GNU repos specifically
 * `NO_NET`: set to non-zero to prevent any outbound network connections
 (requires that you have already cloned the needed repos).
 * `TMPDIR`: _lots_ of tempdirs will be created under here during
 repo-spelunking; should properly clean up after itself.
 
-And one which you must edit the script to cahnge:
-* `GNU_REPOS`: list of "known good" repos to check out.
+And one which you must edit the script to change:
+* `GNU_REPOS`, `OTHER_REPOS`: list of "known good" repos to check out.
 
 This script calls `MODE=0 find_m4.sh ...` to process the `.m4` files
 it finds.
