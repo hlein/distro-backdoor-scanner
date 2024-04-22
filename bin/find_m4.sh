@@ -60,10 +60,9 @@ unalias tput
 
 # unset DEBUG or 0: only display mismatches and other actionable items
 # set DEBUG to non-0: very noisy
-#DEBUG=1
-: "${DEBUG}:=0}"
+: "${DEBUG:=0}"
 
-# Enabling DEBUG also enables VERBOSE
+# Enabling DEBUG also enables VERBOSE by default
 [[ -z ${DEBUG} || ${DEBUG} == "0" ]] || VERBOSE=1
 
 debug()
@@ -77,7 +76,7 @@ debug()
 # unset VERBOSE or 0: only print details at the end
 # set VERBOSE to non-0: print any time a new or unmatched m4 is found,
 # including git diff commands, etc.
-: "${VERBOSE}:=0}"
+: "${VERBOSE:=0}"
 
 # Enable verbose flag for commands like rm
 [[ -z ${VERBOSE} || ${VERBOSE} == "0" ]] || VERBOSE_FLAG=-v
