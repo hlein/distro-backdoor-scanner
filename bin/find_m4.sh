@@ -399,7 +399,7 @@ EOF
         expected_gitpath=${parsed_results[7]}
         verbose ${cmd} "diff using:"$'\n\t'"git diff --no-index <(git -C ${expected_repository} show '${expected_gitcommit}:${expected_gitpath}') '${file}'"
 
-        DIFF_CMDS+=( "git diff --no-index <(git -C ${expected_repository} show '${expected_gitcommit}:${expected_gitpath}') '${file}' # discontinity" )
+        DIFF_CMDS+=( "git diff --no-index <(git -C ${expected_repository} show '${expected_gitcommit}:${expected_gitpath}') '${file}' # discontinuity" )
         # We don't want to emit loads of diff commands for the same thing
         bad_checksums[${plain_checksum}]=1
         bad_checksums[${strip_checksum}]=1
