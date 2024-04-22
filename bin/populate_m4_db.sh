@@ -8,7 +8,7 @@
 # against which arbitrary repos' .m4 files can be compared.
 
 # Override w/env vars
-GNU_REPOS_TOPDIR="${GNU_REPOS_TOPDIR:-${HOME}/gnu-repos/}"
+KNOWN_REPOS_TOPDIR="${KNOWN_REPOS_TOPDIR:-${HOME}/known-repos/}"
 GNU_REPOS_TOPURL="${GNU_REPOS_TOPURL:-https://git.savannah.gnu.org/r/}"
 NO_NET="${NO_NET:-0}"
 
@@ -21,6 +21,17 @@ GNU_REPOS=(
 	"gettext"
 	"gnulib"
 	"libtool"
+)
+
+# Other repos we will harvest. These should be full clonable URLs
+OTHER_REPOS=(
+	"https://github.com/freetype/freetype"
+	"https://gitlab.gnome.org/GNOME/gnome-common"
+	"https://gitlab.gnome.org/GNOME/gobject-introspection"
+	"https://gitlab.gnome.org/GNOME/gtk-doc"
+	"https://github.com/pkgconf/pkgconf"
+	"https://gitlab.gnome.org/GNOME/vala"
+	"https://gitlab.xfce.org/xfce/xfce4-dev-tools"
 )
 
 shopt -s expand_aliases
@@ -68,30 +79,39 @@ done
 # If TMPDIR is set, force it to be an absolute path
 [[ -n "${TMPDIR}" ]] && TMPDIR=$(realpath "${TMPDIR}")
 
-GNU_REPOS_TOPDIR="${GNU_REPOS_TOPDIR%/}/"
-[[ -d ${GNU_REPOS_TOPDIR} ]] || die "GNU_REPOS_TOPDIR directory '${GNU_REPOS_TOPDIR}' does not exist"
-cd ${GNU_REPOS_TOPDIR} || die "chdir GNU_REPOS_TOPDIR directory '${GNU_REPOS_TOPDIR}' failed"
-
-GNU_REPOS_TOPURL="${GNU_REPOS_TOPURL%/}/"
+KNOWN_REPOS_TOPDIR="${KNOWN_REPOS_TOPDIR%/}/"
+[[ -d ${KNOWN_REPOS_TOPDIR} ]] || die "KNOWN_REPOS_TOPDIR directory '${KNOWN_REPOS_TOPDIR}' does not exist"
+cd ${KNOWN_REPOS_TOPDIR} || die "chdir KNOWN_REPOS_TOPDIR directory '${KNOWN_REPOS_TOPDIR}' failed"
 
 # Warn about cloning repos only the first time
 warn_clone_abort=1
 
 DIRS=()
-for gnu_repo in "${GNU_REPOS[@]}" ; do
-  gnu_repo=${gnu_repo%.git}
-  if [[ ! -d "${GNU_REPOS_TOPDIR}/${gnu_repo}" ]]; then
-    [[ ${NO_NET} != "0" ]] && die "Repo '${gnu_repo}' not found under '${GNU_REPOS_TOPDIR}' but NO_NET='${NO_NET}'"
-    einfo "Repo '${gnu_repo}' not found under '${GNU_REPOS_TOPDIR}', cloning"
+for repo in "${GNU_REPOS[@]}" "${OTHER_REPOS[@]}" ; do
+
+  # canonicalize repo name and path
+  repo="${repo%/}"; repo="${repo%.git}"
+
+  repo_topurl="${repo%/*}"
+  if [[ -z $repo_topurl ]]; then
+    repo_topurl="${GNU_REPOS_TOPURL}"
+  else
+    repo="${repo##*/}"
+  fi
+  repo_topurl="${repo_topurl%/}/"
+  
+  if [[ ! -d "${KNOWN_REPOS_TOPDIR}/${repo}" ]]; then
+    [[ ${NO_NET} != "0" ]] && die "Repo '${repo}' not found under '${KNOWN_REPOS_TOPDIR}' but NO_NET='${NO_NET}'"
+    einfo "Repo '${repo}' not found under '${KNOWN_REPOS_TOPDIR}', cloning"
     if [[ ${warn_clone_abort} == 1 ]]; then
       ewarn "Hit ^C within 5 seconds to abort"
       sleep 5
     fi
     warn_clone_abort=0
-    git clone ${GNU_REPOS_TOPURL}${gnu_repo}.git/ || die "Clone '${GNU_REPOS_TOPURL}${gnu_repo}.git' failed"
+    git clone ${repo_topurl}${repo}.git/ || die "Clone '${repo_topurl}${repo}.git' failed"
   fi
-  git -C ${gnu_repo} branch | grep -E -q '^\* (master|main)$' || die "Repo ${gnu_repo} exists but not in master/main branch"
-  DIRS+=( "${GNU_REPOS_TOPDIR}${gnu_repo}" )
+  git -C ${repo} branch | grep -E -q '^\* (master|main)$' || die "Repo ${repo} exists but not in master/main branch"
+  DIRS+=( "${KNOWN_REPOS_TOPDIR}${repo}" )
 done
 
 einfo "Checking for regular directories to be processed..."
