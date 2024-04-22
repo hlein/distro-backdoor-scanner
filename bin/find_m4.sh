@@ -105,6 +105,35 @@ extract_serial()
   echo "${serial_int}" "${serial}"
 }
 
+# For a given file, get a comment-stripped checksum.
+# If the file contained 'changecom', we give up, don't try to strip.
+# https://www.gnu.org/software/m4/manual/html_node/Comments.html
+# https://www.gnu.org/software/m4/manual/html_node/Changecom.html
+# https://lists.gnu.org/archive/html/m4-discuss/2014-06/msg00000.html
+
+make_stripped_checksum()
+{
+  local file="$1"
+  local plain_checksum="$2"
+
+  # TODO: dnl can follow something other than whitespace, like
+  # foo)dnl, bar]dnl. Broaden our match? We'd have to restore or
+  # not consume such chars, unlike the whitespace we currently consume
+
+  local strip_checksum=$(gawk '/changecom/{exit 77}; { gsub(/#.*/,""); gsub(/(^| )dnl.*/,"");}; /^ *$/{next}; {print};' "${file}" 2>/dev/null \
+	| sha256sum - \
+	| cut -d' ' -f1 ; \
+	exit ${PIPESTATUS[0]})
+  local ret=$?
+  if [[ ${ret} != 0 ]] ; then
+    strip_checksum="${plain_checksum}"
+    if [[ ${ret} != 77 ]]; then
+      eerror "File '${file}': Got error ${ret} from gawk?"
+    fi
+  fi
+  echo "${strip_checksum}"
+}
+
 # Initial creation of known M4 macros database.
 # Creates a table called `m4` with fields:
 # `name`
@@ -192,24 +221,8 @@ populate_known_db()
     commit=$(git -C "${dirname}" rev-parse HEAD 2>/dev/null || cat "${file}.gitcommit")
     path=$(cat "${file}".gitpath 2>/dev/null || echo "${file}")
 
-    # Get the plain checksum, and if possible, comment-stripped checksum.
-    # If the file contained 'changecom', we give up, don't try to strip.
-    # https://www.gnu.org/software/m4/manual/html_node/Comments.html
-    # https://www.gnu.org/software/m4/manual/html_node/Changecom.html
-    # https://lists.gnu.org/archive/html/m4-discuss/2014-06/msg00000.html
-
     plain_checksum=$(sha256sum "${file}" | cut -d' ' -f 1)
-    strip_checksum=$(gawk '/changecom/{exit 77}; { gsub(/#.*/,""); gsub(/(^| )dnl.*/,"");}; /^ *$/{next}; {print};' "${file}" 2>/dev/null \
-        | sha256sum - \
-        | cut -d' ' -f1 ; \
-        exit ${PIPESTATUS[0]})
-    ret=$?
-    if [[ ${ret} != 0 ]] ; then
-      strip_checksum="${plain_checksum}"
-      if [[ ${ret} != 77 ]]; then
-        eerror "File '${file}': Got error ${ret} from gawk?"
-      fi
-    fi
+    strip_checksum=$(make_stripped_checksum "${file}" "${plain_checksum}")
 
     queries+=(
       "$(printf "INSERT INTO \
@@ -278,17 +291,7 @@ EOF
     read -r serial_int serial <<< $(extract_serial "${file}")
 
     plain_checksum=$(sha256sum "${file}" | cut -d' ' -f 1)
-    strip_checksum=$(gawk '/changecom/{exit 77}; { gsub(/#.*/,""); gsub(/(^| )dnl.*/,"");}; /^ *$/{next}; {print};' "${file}" 2>/dev/null \
-        | sha256sum - \
-        | cut -d' ' -f1 ; \
-        exit ${PIPESTATUS[0]})
-    ret=$?
-    if [[ ${ret} != 0 ]] ; then
-      strip_checksum="${plain_checksum}"
-      if [[ ${ret} != 77 ]]; then
-        eerror "File '${file}': Got error ${ret} from gawk?"
-      fi
-    fi
+    strip_checksum=$(make_stripped_checksum "${file}" "${plain_checksum}")
 
     debug "\n"
     debug "[%s] Got serial %s with checksum %s stripped %s\n" \
