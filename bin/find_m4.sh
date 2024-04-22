@@ -527,7 +527,7 @@ BAD_SERIAL_MACROS=()
 MATCH_COUNT=0
 
 if [[ ${MODE} == 0 ]] ; then
-  if [ "$#" -le 3 ]; then
+  if [[ "$#" -le 3 ]] ; then
     label="$*"
   else
     label="$1 $2 ...[$#]"
