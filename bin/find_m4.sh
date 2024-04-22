@@ -425,18 +425,19 @@ EOF
 
         eerror "$(printf "Large serial delta found in %s!\n" "${filename}")"
         verbose eerror \
-		"$(printf "full path: %s" "${file}")" $'\n' \
-		"$(printf "serial=%s" "${serial}")" $'\n' \
-		"$(printf "max_serial_seen=%s" "${max_serial_seen}")" $'\n' \
-		"$(printf "delta=%s" "${absolute_delta}")" $'\n' \
+		      "$(printf "full path: %s" "${file}")" $'\n' \
+		      "$(printf "serial=%s" "${serial}")" $'\n' \
+		      "$(printf "max_serial_seen=%s" "${max_serial_seen}")" $'\n' \
+		      "$(printf "delta=%s" "${absolute_delta}")" $'\n'
         print_diff_cmd eerror
       elif [[ ${delta} -lt 0 ]] ; then
         NEW_SERIAL_MACROS+=( "${filename}" )
 
         ewarn "$(printf "Newer macro serial found in %s\n" "${filename}")"
-        verbose ewarn "$(printf "serial=%s" "${serial}")" $'\n' \
-		"$(printf "max_serial_seen=%s" "${max_serial_seen}")" $'\n' \
-		"$(printf "absolute_delta=%s" "${absolute_delta}")" $'\n'
+        verbose ewarn \
+          "$(printf "serial=%s" "${serial}")" $'\n' \
+		      "$(printf "max_serial_seen=%s" "${max_serial_seen}")" $'\n' \
+		      "$(printf "absolute_delta=%s" "${absolute_delta}")" $'\n'
         print_diff_cmd ewarn
       fi
     fi
@@ -482,14 +483,14 @@ EOF
 
           eerror "$(printf "Found mismatch in %s\n"  "${file}")"
           verbose eerror \
-		"$(printf "full path: %s" "${file}")" \
-		"$(printf "expected_serial=%s vs serial=%s" \
-			"${expected_serial}" "${serial}")" \
-		"$(printf "expected_plain_checksum=%s vs plain_checksum=%s" \
-			"${expected_plain_checksum}" "${plain_checksum}")" \
-		"$(printf "expected_strip_checksum=%s vs strip_checksum=%s" \
-			"${expected_strip_checksum}" "${strip_checksum}")" \
-		"diff using:"$'\n\t'"git diff --no-index <(git -C ${expected_repository} show '${expected_gitcommit}:${expected_gitpath}') '${file}'"
+		        "$(printf "full path: %s" "${file}")" \
+		        "$(printf "expected_serial=%s vs serial=%s" \
+			        "${expected_serial}" "${serial}")" \
+		        "$(printf "expected_plain_checksum=%s vs plain_checksum=%s" \
+			        "${expected_plain_checksum}" "${plain_checksum}")" \
+		        "$(printf "expected_strip_checksum=%s vs strip_checksum=%s" \
+			        "${expected_strip_checksum}" "${strip_checksum}")" \
+		        "diff using:"$'\n\t'"git diff --no-index <(git -C ${expected_repository} show '${expected_gitcommit}:${expected_gitpath}') '${file}'"
 
           DIFF_CMDS+=( "git diff --no-index <(git -C ${expected_repository} show '${expected_gitcommit}:${expected_gitpath}') '${file}' # mismatch" )
 
