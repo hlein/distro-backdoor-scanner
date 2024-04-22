@@ -90,7 +90,7 @@ verbose()
 
   eindent
   for line in "$@" ; do
-    ${cmd} "$line"
+    ${cmd} "${line}"
   done
   eoutdent
 }
