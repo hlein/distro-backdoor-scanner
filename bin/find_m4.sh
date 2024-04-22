@@ -58,12 +58,42 @@ alias tput=false
 }
 unalias tput
 
+# unset DEBUG or 0: only display mismatches and other actionable items
+# set DEBUG to non-0: very noisy
+#DEBUG=1
+: "${DEBUG}:=0}"
+
+# Enabling DEBUG also enables VERBOSE
+[[ -z ${DEBUG} || ${DEBUG} == "0" ]] || VERBOSE=1
+
 debug()
 {
-  [[ -n ${DEBUG} ]] || return
+  [[ -z ${DEBUG} || ${DEBUG} == "0" ]] && return
   # Deliberately treating this as a 'printf with debug check' function
   # shellcheck disable=2059
   printf "$@" >&2
+}
+
+# unset VERBOSE or 0: only print details at the end
+# set VERBOSE to non-0: print any time a new or unmatched m4 is found,
+# including git diff commands, etc.
+: "${VERBOSE}:=0}"
+
+# Enable verbose flag for commands like rm
+[[ -z ${VERBOSE} || ${VERBOSE} == "0" ]] || VERBOSE_FLAG=-v
+
+verbose()
+{
+  [[ -z ${VERBOSE} || ${VERBOSE} == "0" ]] && return
+  local cmd line
+  cmd=$1
+  shift
+
+  eindent
+  for line in "$@" ; do
+    ${cmd} "$line"
+  done
+  eoutdent
 }
 
 # Extract M4 serial number from an M4 macro.
@@ -210,6 +240,9 @@ populate_known_db()
 
     filename="${file##*/}"
     [[ ${filename} == @(aclocal.m4|acinclude.m4|m4sugar.m4) ]] && continue
+
+    # TODO: reject pathological filenames? spaces, shell metacharacters, etc.
+
     dirname="${file%/*}"
 
     read -r serial_int serial <<< $(extract_serial "${file}")
@@ -286,6 +319,8 @@ EOF
     filename="${file##*/}"
     [[ ${filename} == @(aclocal.m4|acinclude.m4|m4sugar.m4) ]] && continue
 
+    # TODO: reject pathological filenames? spaces, shell metacharacters, etc.
+
     project_filepath=${file#"${M4_DIR}"}
 
     read -r serial_int serial <<< $(extract_serial "${file}")
@@ -329,7 +364,7 @@ EOF
       # We didn't see this filename before when indexing.
       NEW_MACROS[${filename}]=1
 
-      ewarn "$(printf "Found new macro %s\n" "${filename}")"
+      ewarn "$(printf "Found new macro %s\n" "${file}")"
 
       debug "[%s] Got serial %s with checksum %s stripped %s\n" "${filename}" "${serial}" "${plain_checksum}" "${strip_checksum}"
 
@@ -363,10 +398,9 @@ EOF
         expected_repository=${parsed_results[5]}
         expected_gitcommit=${parsed_results[6]}
         expected_gitpath=${parsed_results[7]}
-        ${cmd} "diff using:" $'\n\t' \
-          "git diff --no-index <(git -C "${expected_repository}" show "${expected_gitcommit}:${expected_gitpath}") '${file}'"
+        verbose ${cmd} "diff using:"$'\n\t'"git diff --no-index <(git -C ${expected_repository} show '${expected_gitcommit}:${expected_gitpath}') '${file}'"
 
-        DIFF_CMDS+=( "git diff --no-index <(git -C "${expected_repository}" show "${expected_gitcommit}:${expected_gitpath}") '${file}' # discontinity" )
+        DIFF_CMDS+=( "git diff --no-index <(git -C ${expected_repository} show '${expected_gitcommit}:${expected_gitpath}') '${file}' # discontinity" )
         # We don't want to emit loads of diff commands for the same thing
         bad_checksums[${plain_checksum}]=1
         bad_checksums[${strip_checksum}]=1
@@ -391,23 +425,20 @@ EOF
         BAD_SERIAL_MACROS+=( "${filename}" )
 
         eerror "$(printf "Large serial delta found in %s!\n" "${filename}")"
-        eindent
-        eerror "$(printf "full path: %s\n" "${file}")"
-        eerror "$(printf "serial=%s\n" "${serial}")"
-        eerror "$(printf "max_serial_seen=%s\n" "${max_serial_seen}")"
-        eerror "$(printf "delta=%s\n" "${absolute_delta}")"
+        verbose eerror \
+		"$(printf "full path: %s" "${file}")" $'\n' \
+		"$(printf "serial=%s" "${serial}")" $'\n' \
+		"$(printf "max_serial_seen=%s" "${max_serial_seen}")" $'\n' \
+		"$(printf "delta=%s" "${absolute_delta}")" $'\n' \
         print_diff_cmd eerror
-        eoutdent
       elif [[ ${delta} -lt 0 ]] ; then
         NEW_SERIAL_MACROS+=( "${filename}" )
 
         ewarn "$(printf "Newer macro serial found in %s\n" "${filename}")"
-        eindent
-        ewarn "$(printf "serial=%s\n" "${serial}")"
-        ewarn "$(printf "max_serial_seen=%s\n" "${max_serial_seen}")"
-        ewarn "$(printf "absolute_delta=%s\n" "${absolute_delta}")"
+        verbose ewarn "$(printf "serial=%s" "${serial}")" $'\n' \
+		"$(printf "max_serial_seen=%s" "${max_serial_seen}")" $'\n' \
+		"$(printf "absolute_delta=%s" "${absolute_delta}")" $'\n'
         print_diff_cmd ewarn
-        eoutdent
       fi
     fi
 
@@ -450,21 +481,18 @@ EOF
         if [[ ${checksum_ok} == no ]] ; then
           BAD_MACROS+=( "${file}" )
 
-          eerror "$(printf "Found mismatch in %s!\n"  "${filename}")"
-          eindent
-          eerror "$(printf "full path: %s\n" "${file}")"
-          eerror "$(printf "expected_serial=%s vs serial=%s\n" \
-            "${expected_serial}" "${serial}")"
-          eerror "$(printf "expected_plain_checksum=%s vs plain_checksum=%s\n" \
-            "${expected_plain_checksum}" "${plain_checksum}")"
-          eerror "$(printf "expected_strip_checksum=%s vs strip_checksum=%s\n" \
-            "${expected_strip_checksum}" "${strip_checksum}")"
+          eerror "$(printf "Found mismatch in %s\n"  "${file}")"
+          verbose eerror \
+		"$(printf "full path: %s" "${file}")" \
+		"$(printf "expected_serial=%s vs serial=%s" \
+			"${expected_serial}" "${serial}")" \
+		"$(printf "expected_plain_checksum=%s vs plain_checksum=%s" \
+			"${expected_plain_checksum}" "${plain_checksum}")" \
+		"$(printf "expected_strip_checksum=%s vs strip_checksum=%s" \
+			"${expected_strip_checksum}" "${strip_checksum}")" \
+		"diff using:"$'\n\t'"git diff --no-index <(git -C ${expected_repository} show '${expected_gitcommit}:${expected_gitpath}') '${file}'"
 
-          eerror "diff using:" $'\n\t' \
-               "git diff --no-index <(git -C "${expected_repository}" show "${expected_gitcommit}:${expected_gitpath}") '${file}'"
-          eoutdent
-
-          DIFF_CMDS+=( "git diff --no-index <(git -C "${expected_repository}" show "${expected_gitcommit}:${expected_gitpath}") '${file}' # mismatch" )
+          DIFF_CMDS+=( "git diff --no-index <(git -C ${expected_repository} show '${expected_gitcommit}:${expected_gitpath}') '${file}' # mismatch" )
 
           # We don't want to emit loads of diff commands for the same thing
           bad_checksums[${plain_checksum}]=1
@@ -487,10 +515,6 @@ done
 # MODE=0: create database
 # MODE=1: search against the db
 : "${MODE:=0}"
-
-# unset DEBUG: only display mismatches and other actionable items
-# set DEBUG: very noisy
-#DEBUG=1
 
 declare -Ag NEW_MACROS=()
 
@@ -527,7 +551,7 @@ else
   [[ -f "${KNOWN_M4_DBPATH}" ]] || die "error: running in DB comparison mode but '${KNOWN_M4_DBPATH}' not found!"
 
   einfo "Purging old (if any) unknown db..."
-  rm -vf "${UNKNOWN_M4_DBPATH}"
+  rm ${VERBOSE_FLAG} -f "${UNKNOWN_M4_DBPATH}"
   einfo "Creating new unknown db..."
   create_unknown_db
 
