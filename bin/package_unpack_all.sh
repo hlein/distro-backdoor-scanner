@@ -33,7 +33,7 @@ pre_parallel_hook()
 
 OS_ID=$(sed -n -E 's/^ID="?([^ "]+)"? *$/\1/p' /etc/os-release 2>/dev/null)
 
-case "$OS_ID" in
+case "${OS_ID}" in
 
   "")
     die "Could not extract an ID= line from /etc/os-release"
@@ -44,14 +44,14 @@ case "$OS_ID" in
     # XXX: is there an equivalent of MAKE_OPTS that sets a -j factor?
     JOBS=$(grep -E '^processor.*: [0-9]+$' /proc/cpuinfo | wc -l)
     PACKAGE_DIR=/var/packages/
-    UNPACK_DIR="$PACKAGE_DIR"
+    UNPACK_DIR="${PACKAGE_DIR}"
 
     DEB_SRC=$(grep -r '^deb-src' /etc/apt/sources.list* 2>/dev/null | wc -l)
-    if [ "$DEB_SRC" = "0" ]; then
+    if [ "${DEB_SRC}" = "0" ]; then
       die 'No deb-src entries found in /etc/apt/sources.list*'
     fi
 
-    if [ "$DOWNLOAD_ONLY" = "1" ]; then
+    if [ "${DOWNLOAD_ONLY}" = "1" ]; then
       DOWNLOAD_FLAG=--download-only
     fi
 
@@ -63,7 +63,7 @@ case "$OS_ID" in
 
     make_pkg_cmd()
     {
-      echo "echo '###   unpack $COUNT/$TOT $PKG' && apt-get source $DOWNLOAD_FLAG '$PKG'"
+      echo "echo '###   unpack ${COUNT}/${TOT} ${PKG}' && apt-get source ${DOWNLOAD_FLAG} '${PKG}'"
     }
     ;;
 
@@ -71,12 +71,12 @@ case "$OS_ID" in
     COMMANDS+="ebuild portageq"
     JOBS=$(sed -E -n 's/^MAKEOPTS="[^"#]*-j ?([0-9]+).*/\1/p' /etc/portage/make.conf 2>/dev/null)
     for D in $(portageq get_repo_path "${EROOT:-/}" gentoo) /usr/portage/ /var/db/repos/gentoo/ ; do
-      test -d "$D" && PACKAGE_DIR="$D" && break
+      test -d "${D}" && PACKAGE_DIR="${D}" && break
     done
-    test -n "$PACKAGE_DIR" || die "Could not find package dir"
+    test -n "${PACKAGE_DIR}" || die "Could not find package dir"
     UNPACK_DIR="${PORTAGE_TMPDIR:-/var/tmp/portage/}"
 
-    if [ "$DOWNLOAD_ONLY" = "1" ]; then
+    if [ "${DOWNLOAD_ONLY}" = "1" ]; then
       EBUILD_CMD=fetch
     else
       EBUILD_CMD=unpack
@@ -95,8 +95,8 @@ case "$OS_ID" in
       if ! test -d "${PACKAGE_DIR}/$(qatom -C -F '%{CATEGORY}/%{PN}' "${PKG}")" ; then
         return
       fi
-      EBUILD="$(qatom -C -F '%{CATEGORY}/%{PN}/%{PF}' "$PKG").ebuild"
-      echo "echo '###   unpack $COUNT/$TOT $EBUILD' && ebuild $(echo \"$EBUILD\") $EBUILD_CMD"
+      EBUILD="$(qatom -C -F '%{CATEGORY}/%{PN}/%{PF}' "${PKG}").ebuild"
+      echo "echo '###   unpack ${COUNT}/${TOT} ${EBUILD}' && ebuild $(echo \"${EBUILD}\") ${EBUILD_CMD}"
     }
     ;;
 
@@ -126,7 +126,7 @@ case "$OS_ID" in
       # the .tar files inside would be our job, reading from .spec.
       # For now just skip the intermediate step. Run the %prep stage
       # which unpacks tars, applies patches, conditionally other things.
-      echo "echo '###   unpack $COUNT/$TOT $PNAME' && mkdir -p ${UNPACK_DIR}SOURCES/ && rpmbuild --define '_topdir ${UNPACK_DIR}' --quiet -rp '${PKG}'"
+      echo "echo '###   unpack ${COUNT}/${TOT} ${PNAME}' && mkdir -p ${UNPACK_DIR}SOURCES/ && rpmbuild --define '_topdir ${UNPACK_DIR}' --quiet -rp '${PKG}'"
     }
 
     # We cannot really combine fetch+unpack, and reposync(1) is not
@@ -139,18 +139,18 @@ case "$OS_ID" in
       # First, fetch every available distfile
       reposync --disablerepo='*' --enablerepo="${ENABLE_REPO}" --source || \
           warn "reposync errored, attempting to continue"
-      # Second, build a list of RPMs and use that instead of $PKG_LIST.
+      # Second, build a list of RPMs and use that instead of ${PKG_LIST}.
       # Ignore the bird, follow the river.
       find ${PACKAGE_DIR}${ENABLE_REPO}/Packages/ -type f -name \*.src.rpm >"${RPM_LIST}" || \
            die "find RPMs failed"
-      PKG_LIST="$RPM_LIST"
+      PKG_LIST="${RPM_LIST}"
       # Prepare the target directory structure, just once.
       mkdir -p ${UNPACK_DIR}{BUILD,BUILDROOT,RPMS,SOURCES,SRPMS}
     }
     ;;
 
   *)
-    die "Unsupported OS '$OS_ID'"
+    die "Unsupported OS '${OS_ID}'"
     ;;
 esac
 
@@ -159,33 +159,33 @@ export -f make_pkg_cmd
 export -f pre_parallel_hook
 
 # Mirrors will hate you fetching too many in parallel
-test "$DOWNLOAD_ONLY" = "1" && test "$JOBS" -gt 4 && JOBS=4
+test "${DOWNLOAD_ONLY}" = "1" && test "${JOBS}" -gt 4 && JOBS=4
 
-for COMMAND in $COMMANDS ; do
+for COMMAND in ${COMMANDS} ; do
   command -v ${COMMAND} >/dev/null || die "${COMMAND} not found in PATH"
 done
 
 # On some OSs, these are the same
-test -d "$UNPACK_DIR" || die "Unpack target $UNPACK_DIR does not exist"
-cd "$PACKAGE_DIR" || die "Could not cd $PACKAGE_DIR"
+test -d "${UNPACK_DIR}" || die "Unpack target ${UNPACK_DIR} does not exist"
+cd "${PACKAGE_DIR}" || die "Could not cd ${PACKAGE_DIR}"
 
-if ! test -s "$PKG_LIST" ; then
+if ! test -s "${PKG_LIST}" ; then
   echo "### Generating package list"
-  make_pkg_list >"$PKG_LIST"
+  make_pkg_list >"${PKG_LIST}"
 fi
 
 pre_parallel_hook
 
 COUNT=0
-TOT=$(wc -l "$PKG_LIST")
-echo "### Processing $TOT packages in $JOBS parallel fetch+unpack jobs"
+TOT=$(wc -l "${PKG_LIST}")
+echo "### Processing ${TOT} packages in ${JOBS} parallel fetch+unpack jobs"
 while IFS= read -r PKG ; do
   # Bail out if our target filesystem(s) are filling
-  for FILESYSTEM in "$PACKAGE_DIR" "$UNPACK_DIR" ; do
-    PCT=$(df "$FILESYSTEM" | awk -F'[ %]+' '/[0-9]%/{print $5}')
-    echo "$PCT" | grep -q -E '^[0-9]+$' || die "Unable to get '$FILESYSTEM' full %, unsafe to continue"
-    test "$PCT" -lt 90 || die "${FILESYSTEM} filesystem at ${PCT}% full, refusing to continue"
+  for FILESYSTEM in "${PACKAGE_DIR}" "${UNPACK_DIR}" ; do
+    PCT=$(df "${FILESYSTEM}" | awk -F'[ %]+' '/[0-9]%/{print $5}')
+    echo "${PCT}" | grep -q -E '^[0-9]+$' || die "Unable to get '${FILESYSTEM}' full %, unsafe to continue"
+    test "${PCT}" -lt 90 || die "${FILESYSTEM} filesystem at ${PCT}% full, refusing to continue"
   done
   make_pkg_cmd
-  let COUNT=$COUNT+1
-done <"$PKG_LIST" | parallel -j${JOBS} --joblog +${UNPACK_LOG}
+  let COUNT=${COUNT}+1
+done <"${PKG_LIST}" | parallel -j${JOBS} --joblog +${UNPACK_LOG}
