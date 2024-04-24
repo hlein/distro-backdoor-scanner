@@ -6,12 +6,14 @@ warn()
 {
   echo "$@" >&2
 }
+export -f warn
 
 die()
 {
   warn "$@"
   exit 1
 }
+export -f die
 
 UNPACK_LOG=~/parallel_unpack.log
 PKG_LIST=~/package_list
@@ -32,6 +34,7 @@ dfcheck()
     test "${pct}" -lt 90 || die "${filesystem} filesystem at ${pct}% full, refusing to continue"
   done
 }
+export -f dfcheck
 
 # On most OSs, this is a noop
 pre_parallel_hook()
@@ -109,6 +112,7 @@ EOF
       else
         local tarball="${repo_pkg_ver}.tar.bz2"
         echo "echo '###   unpack ${COUNT}/${TOT} ${tarball}' && \
+                dfcheck "${PACKAGE_DIR}" "${UNPACK_DIR}" "${PKGBUILD_DIR}" && \
 		mkdir -p '${PKGBUILD_DIR}${repo}/' '${UNPACK_DIR}${repo_pkg_ver}/' && \
 		tar -C '${PKGBUILD_DIR}${repo}/' -xf '${PACKAGE_DIR}${tarball}' && \
 		cd '${PKGBUILD_DIR}${repo_pkg_ver}' && \
@@ -147,7 +151,7 @@ EOF
         if [[ ! -d "${PKGBUILD_DIR}/endeavouros/.git" ]]; then
           git -C "${PKGBUILD_DIR}" clone https://github.com/endeavouros-team/PKGBUILDS endeavouros
 	else
-	  git -C "${PKGBUILD_DIR}/endeavouros" git pull
+	  git -C "${PKGBUILD_DIR}/endeavouros" pull
 	fi
       fi
     }
@@ -178,7 +182,9 @@ EOF
 
     make_pkg_cmd()
     {
-      echo "echo '###   unpack ${COUNT}/${TOT} ${PKG}' && apt-get source ${DOWNLOAD_FLAG} '${PKG}'"
+      echo "echo '###   unpack ${COUNT}/${TOT} ${PKG}' && \
+		dfcheck "${PACKAGE_DIR}" "${UNPACK_DIR}" && \
+		apt-get source ${DOWNLOAD_FLAG} '${PKG}'"
     }
     ;;
 
@@ -211,7 +217,9 @@ EOF
         return
       fi
       EBUILD="$(qatom -C -F '%{CATEGORY}/%{PN}/%{PF}' "${PKG}").ebuild"
-      echo "echo '###   unpack ${COUNT}/${TOT} ${EBUILD}' && ebuild $(echo \"${EBUILD}\") ${EBUILD_CMD}"
+      echo "echo '###   unpack ${COUNT}/${TOT} ${EBUILD}' \
+		dfcheck "${PACKAGE_DIR}" "${UNPACK_DIR}" && \
+		&& ebuild $(echo \"${EBUILD}\") ${EBUILD_CMD}"
     }
     ;;
 
@@ -241,7 +249,10 @@ EOF
       # the .tar files inside would be our job, reading from .spec.
       # For now just skip the intermediate step. Run the %prep stage
       # which unpacks tars, applies patches, conditionally other things.
-      echo "echo '###   unpack ${COUNT}/${TOT} ${PNAME}' && mkdir -p ${UNPACK_DIR}SOURCES/ && rpmbuild --define '_topdir ${UNPACK_DIR}' --quiet -rp '${PKG}'"
+      echo "echo '###   unpack ${COUNT}/${TOT} ${PNAME}' && \
+		dfcheck "${PACKAGE_DIR}" "${UNPACK_DIR}" && \
+		mkdir -p ${UNPACK_DIR}SOURCES/ && \
+		rpmbuild --define '_topdir ${UNPACK_DIR}' --quiet -rp '${PKG}'"
     }
 
     # We cannot really combine fetch+unpack, and reposync(1) is not
@@ -295,8 +306,6 @@ COUNT=0
 TOT=$(wc -l "${PKG_LIST}")
 echo "### Processing ${TOT} packages in ${JOBS} parallel fetch+unpack jobs"
 while IFS= read -r PKG ; do
-  # Bail out if our target filesystem(s) are filling
-  dfcheck "${PACKAGE_DIR}" "${UNPACK_DIR}" || exit 1
   make_pkg_cmd
   let COUNT=${COUNT}+1
 done <"${PKG_LIST}" | parallel -j${JOBS} --joblog +${UNPACK_LOG}
