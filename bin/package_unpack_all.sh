@@ -15,13 +15,23 @@ die()
 
 UNPACK_LOG=~/parallel_unpack.log
 PKG_LIST=~/package_list
-COMMANDS="parallel "
+COMMANDS="df parallel "
 DOWNLOAD_ONLY=0
 # Only used on rpm-based distros, but keep this up here
 # for visibility since it's a tunable knob.
 RPM_LIST=~/rpm_list
 
 test -f /etc/os-release || die "Required /etc/os-release not found"
+
+dfcheck()
+{
+  local filesystem pct
+  for filesystem in "$@" ; do
+    pct=$(df "${filesystem}" | awk -F'[ %]+' '/[0-9]%/{print $5}')
+    echo "${pct}" | grep -q -E '^[0-9]+$' || die "Unable to get '${filesystem}' full %, unsafe to continue"
+    test "${pct}" -lt 90 || die "${filesystem} filesystem at ${pct}% full, refusing to continue"
+  done
+}
 
 # On most OSs, this is a noop
 pre_parallel_hook()
@@ -37,6 +47,111 @@ case "${OS_ID}" in
 
   "")
     die "Could not extract an ID= line from /etc/os-release"
+    ;;
+
+  arch|endeavouros)
+    COMMANDS+="curl expac makepkg pacman svn"
+    PACKAGE_DIR="${HOME}/pkgs/distfiles/"
+    PKGBUILD_DIR="${HOME}/pkgs/pkgbuild/"
+    UNPACK_DIR="${HOME}/pkgs/sources/"
+    LOG_DIR="${HOME}/pkgs/logs/"
+
+    # XXX: is there an equivalent of MAKE_OPTS that sets a -j factor?
+    JOBS=$(grep -E '^processor.*: [0-9]+$' /proc/cpuinfo | wc -l)
+
+    # makepkg will refuse to run as root
+    [[ $EUID == "0" ]] && die "Must be run as non-root"
+
+    # ...and yet root must have synced before we start
+    [[ $(ls /var/lib/pacman/sync/*.db 2>/dev/null | wc -l) -gt 0 ]] || \
+	die "No .db files under /var/lib/pacman/sync/! Run pacman -Sy as root once first."
+
+    # make our own config that tunes some settings
+    if [[ ! -f ${HOME}/.package_unpack.conf ]]; then
+      sed 's/curl -q/curl -s -S -/' /etc/makepkg.conf >${HOME}/.package_unpack.conf
+      cat >>${HOME}/.package_unpack.conf <<EOF
+GITFLAGS='--mirror --quiet'
+SRCDEST='.'
+LOGDEST='${LOG_DIR}'
+EOF
+    fi
+
+    mkdir -p "${PACKAGE_DIR}" "${PKGBUILD_DIR}" "${UNPACK_DIR}" "${LOG_DIR}" || \
+	die "Could not make needed directories."
+
+    make_pkg_list()
+    {
+      # List all available packages (translated to real pkgbase)
+      pacman -Sl | expac -S '%r|%e|%v' - | sort -u
+    }
+
+    import_keys()
+    {
+      [[ -f PKGBUILD ]] || return 0
+      # XXX: This will catch only the first key of a multiline validpgpkeys=(... definition
+      KEYS=$(grep -h validpgpkeys PKGBUILD .SRCINFO 2>/dev/null | grep -E -o '[A-Fa-f0-9]{40}' | sort -u)
+      [[ -z $KEYS ]] && return 0
+      gpg -q --recv-keys ${KEYS}
+    }
+    export -f import_keys
+
+    make_pkg_cmd()
+    {
+      # core|archlinux-keyring|20240313-1
+      IFS='|' read -r repo pkg ver <<< "${PKG}"
+
+      local repo_pkg_ver="${repo}/${pkg}-${ver}"
+      [[ -d "${UNPACK_DIR}${repo_pkg_ver}" ]] && return
+
+      if [[ ${repo} == "endeavouros" ]]; then
+        # XXX: TODO
+        :
+      else
+        local tarball="${repo_pkg_ver}.tar.bz2"
+        echo "echo '###   unpack ${COUNT}/${TOT} ${tarball}' && \
+		mkdir -p '${PKGBUILD_DIR}${repo}/' '${UNPACK_DIR}${repo_pkg_ver}/' && \
+		tar -C '${PKGBUILD_DIR}${repo}/' -xf '${PACKAGE_DIR}${tarball}' && \
+		cd '${PKGBUILD_DIR}${repo_pkg_ver}' && \
+		import_keys && \
+		BUILDDIR='${UNPACK_DIR}${repo_pkg_ver}' MAKEPKG_CONF='${HOME}/.package_unpack.conf' makepkg --nodeps --nobuild --noconfirm --noprogressbar"
+      fi
+    }
+
+    # We cannot really combine fetch+unpack, and should not fetch
+    # files in parallel lest we hit rate-limits on gitlab.
+    pre_parallel_hook()
+    {
+      local outfile
+      # Fetch every available distfile
+      while IFS='|' read -r repo pkg ver ; do
+
+        # All EnOS packages live in their own single repo; handle separately.
+        # XXX: Are there other Arch family distros that do similar?
+        [[ $repo == "endeavouros" ]] && continue
+
+	outfile="${repo}/${pkg}-${ver}.tar.bz2"
+        [[ -f "${PACKAGE_DIR}${outfile}" ]] && continue
+
+        dfcheck "${PACKAGE_DIR}" "${PKGBUILD_DIR}" "${UNPACK_DIR}" || exit 1
+        echo "  Getting ${outfile}..."
+        mkdir -p "${PACKAGE_DIR}${repo}/"
+        curl -s -S -o "${PACKAGE_DIR}${outfile}" \
+		"https://gitlab.archlinux.org/archlinux/packaging/packages/${pkg}/-/archive/${ver}/${pkg}-${ver}.tar.bz2" || \
+		warn "Error on ${pkg}-${ver}"
+        # Increase if we hit rate limits
+        sleep 0.2
+      done <"${PKG_LIST}"
+
+      # If there are any EnOS packages listed, get/update that repo
+      if grep -q -l '^endeavouros\|' "${PKG_LIST}" ; then
+        if [[ ! -d "${PKGBUILD_DIR}/endeavouros/.git" ]]; then
+          git -C "${PKGBUILD_DIR}" clone https://github.com/endeavouros-team/PKGBUILDS endeavouros
+	else
+	  git -C "${PKGBUILD_DIR}/endeavouros" git pull
+	fi
+      fi
+    }
+
     ;;
 
   debian|devuan|ubuntu)
@@ -181,11 +296,8 @@ TOT=$(wc -l "${PKG_LIST}")
 echo "### Processing ${TOT} packages in ${JOBS} parallel fetch+unpack jobs"
 while IFS= read -r PKG ; do
   # Bail out if our target filesystem(s) are filling
-  for FILESYSTEM in "${PACKAGE_DIR}" "${UNPACK_DIR}" ; do
-    PCT=$(df "${FILESYSTEM}" | awk -F'[ %]+' '/[0-9]%/{print $5}')
-    echo "${PCT}" | grep -q -E '^[0-9]+$' || die "Unable to get '${FILESYSTEM}' full %, unsafe to continue"
-    test "${PCT}" -lt 90 || die "${FILESYSTEM} filesystem at ${PCT}% full, refusing to continue"
-  done
+  dfcheck "${PACKAGE_DIR}" "${UNPACK_DIR}" || exit 1
   make_pkg_cmd
   let COUNT=${COUNT}+1
 done <"${PKG_LIST}" | parallel -j${JOBS} --joblog +${UNPACK_LOG}
+
