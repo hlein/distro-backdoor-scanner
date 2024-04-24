@@ -53,7 +53,9 @@ case "${OS_ID}" in
     ;;
 
   arch|endeavouros)
-    COMMANDS+="curl expac makepkg pacman svn"
+    COMMANDS+="cargo curl expac filterdiff gtkdocize gen-setup gendesk gnome-autogen.sh go intltoolize makepkg mate-autogen npm pacman rustc setconf svn uusi yarn yelp-build"
+    # pacman -S $(pacman -Fq ... | sort -u | egrep -v '^extra/(nodejs-|go)')
+
     PACKAGE_DIR="${HOME}/pkgs/distfiles/"
     PKGBUILD_DIR="${HOME}/pkgs/pkgbuild/"
     UNPACK_DIR="${HOME}/pkgs/sources/"
