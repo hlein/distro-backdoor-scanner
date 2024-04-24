@@ -151,9 +151,9 @@ EOF
       # If there are any EnOS packages listed, get/update that repo
       if grep -q -l '^endeavouros\|' "${PKG_LIST}" ; then
         if [[ ! -d "${PKGBUILD_DIR}/endeavouros/.git" ]]; then
-          git -C "${PKGBUILD_DIR}" clone https://github.com/endeavouros-team/PKGBUILDS endeavouros
+          git -C "${PKGBUILD_DIR}" clone --quiet https://github.com/endeavouros-team/PKGBUILDS endeavouros
 	else
-	  git -C "${PKGBUILD_DIR}/endeavouros" pull
+	  git -C "${PKGBUILD_DIR}/endeavouros" pull --quiet
 	fi
       fi
     }
