@@ -128,6 +128,7 @@ EOF
     pre_parallel_hook()
     {
       local outfile
+      local path_mangle
       # Fetch every available distfile
       while IFS='|' read -r repo pkg ver ; do
 
@@ -141,8 +142,11 @@ EOF
         dfcheck "${PACKAGE_DIR}" "${PKGBUILD_DIR}" "${UNPACK_DIR}" || exit 1
         echo "  Getting ${outfile}..."
         mkdir -p "${PACKAGE_DIR}${repo}/"
+	# Gitlab replaces : in paths with -
+	path_mangle="/archlinux/packaging/packages/${pkg}/-/archive/${ver}/${pkg}-${ver}.tar.bz2"
+	path_mangle="${path_mangle//:/-}"
         curl -s -S -o "${PACKAGE_DIR}${outfile}" \
-		"https://gitlab.archlinux.org/archlinux/packaging/packages/${pkg}/-/archive/${ver}/${pkg}-${ver}.tar.bz2" || \
+		"https://gitlab.archlinux.org${path_mangle}" || \
 		warn "Error on ${pkg}-${ver}"
         # Increase if we hit rate limits
         sleep 0.2
