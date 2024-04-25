@@ -115,13 +115,41 @@ EOF
     }
     export -f import_keys
 
+    # gitlab mangles package names (repository.git names) differently from versions
+    # core|archlinux-keyring|20240313-1 - no mangling
+    # extra|libsigc++-3.0|3.6.0-1 - name gets s/++/plusplus/
+    # extra|nicotine+|3.3.2-1 - name gets s/+$/plus/
+    # extra|dvd+rw-tools|7.1-9 - name gets s/+/-/g
+    # core|grub|2:2.12-2 - ver gets s/:/-/g
+    # extra|adobe-source-code-pro-fonts|2.042u+1.062i+1.026vf-1 - ver + left alone
+
+    gitlab_pkg_mangle()
+    {
+      local pkg="$1"
+      pkg="${pkg//++/plusplus}"
+      pkg="${pkg/%+/plus}"
+      pkg="${pkg//+/-}"
+      pkg="${pkg//:/-}"
+      echo "${pkg}"
+    }
+    export -f gitlab_pkg_mangle
+
+    gitlab_ver_mangle()
+    {
+      local ver="$1"
+      ver="${ver//:/-}"
+      echo "${ver}"
+    }
+    export -f gitlab_ver_mangle
+
     make_pkg_cmd()
     {
-      # core|archlinux-keyring|20240313-1
+      local repo_pkg_ver pkg_mangle ver_mangle repo_pkg_ver_mangle
       IFS='|' read -r repo pkg ver <<< "${PKG}"
+      repo_pkg_ver="${repo}/${pkg}-${ver}"
+      repo_pkg_ver_mangle="${repo}/$(gitlab_pkg_mangle "${pkg}")-$(gitlab_ver_mangle "${ver}")"
 
-      local repo_pkg_ver="${repo}/${pkg}-${ver}"
-      [[ -d "${UNPACK_DIR}${repo_pkg_ver}" ]] && return
+      [[ -d "${UNPACK_DIR}${repo_pkg_ver_mangle}" ]] && return
 
       if [[ ${repo} == "endeavouros" ]]; then
         # XXX: TODO
@@ -134,17 +162,20 @@ EOF
         # https://bugs.gentoo.org/930633
 
         echo "echo '###   unpack ${COUNT}/${TOT} ${tarball}' && \
-                dfcheck "${PACKAGE_DIR}" "${UNPACK_DIR}" "${PKGBUILD_DIR}" && \
-		mkdir -p '${PKGBUILD_DIR}${repo}/' '${UNPACK_DIR}${repo_pkg_ver}/' && \
+		dfcheck "${PACKAGE_DIR}" "${UNPACK_DIR}" "${PKGBUILD_DIR}" && \
+		mkdir -p '${PKGBUILD_DIR}${repo}/' '${UNPACK_DIR}${repo_pkg_ver_mangle}/' && \
 		tar -C '${PKGBUILD_DIR}${repo}/' -xf '${PACKAGE_DIR}${tarball}' && \
-		cd '${PKGBUILD_DIR}${repo_pkg_ver}' && \
+		cd '${PKGBUILD_DIR}${repo_pkg_ver_mangle}' && \
 		import_keys && \
-		BUILDDIR='${UNPACK_DIR}${repo_pkg_ver}' MAKEPKG_CONF='${HOME}/.package_unpack.conf' timeout -v --preserve-status ${FETCH_TIMEOUT} makepkg --nodeps --nobuild --noconfirm --noprogressbar"
+		BUILDDIR='${UNPACK_DIR}${repo_pkg_ver_mangle}' MAKEPKG_CONF='${HOME}/.package_unpack.conf' timeout -v --preserve-status ${FETCH_TIMEOUT} makepkg --nodeps --nobuild --noconfirm --noprogressbar || \
+		die '###   unpack failed ${COUNT}/${TOT} ${tarball}'"
       fi
     }
 
-    # We cannot really combine fetch+unpack, and should not fetch
-    # files in parallel lest we hit rate-limits on gitlab.
+    # We need to fetch individual pkgbuild repos from Arch before
+    # we can start actually fetching package sources + unpacking.
+    # Cloning >10k repos from gitlab will kill them and they us,
+    # so just grab versioned tarballs, and don't parallelize.
     pre_parallel_hook()
     {
       local outfile
@@ -169,11 +200,10 @@ EOF
         [[ -f "${PACKAGE_DIR}${outfile}" ]] && continue
 
         dfcheck "${PACKAGE_DIR}" "${PKGBUILD_DIR}" "${UNPACK_DIR}" || exit 1
-        echo "  Getting ${outfile}..."
         mkdir -p "${PACKAGE_DIR}${repo}/"
-	# Gitlab replaces : in paths with -
-	path_mangle="/archlinux/packaging/packages/${pkg}/-/archive/${ver}/${pkg}-${ver}.tar.bz2"
-	path_mangle="${path_mangle//:/-}"
+        pkg_mangle="$(gitlab_pkg_mangle "${pkg}")"
+        ver_mangle="$(gitlab_ver_mangle "${ver}")"
+        path_mangle="/archlinux/packaging/packages/${pkg_mangle}/-/archive/${ver_mangle}/${pkg_mangle}-${ver_mangle}.tar.bz2"
 
         verbose "###    Fetching 'https://gitlab.archlinux.org${path_mangle}' -> '${PACKAGE_DIR}${outfile}'"
 
@@ -188,10 +218,13 @@ EOF
       if grep -q -l '^endeavouros\|' "${PKG_LIST}" ; then
         if [[ ! -d "${PKGBUILD_DIR}/endeavouros/.git" ]]; then
           git -C "${PKGBUILD_DIR}" clone --quiet https://github.com/endeavouros-team/PKGBUILDS endeavouros
-	else
-	  git -C "${PKGBUILD_DIR}/endeavouros" pull --quiet
-	fi
+        else
+          git -C "${PKGBUILD_DIR}/endeavouros" pull --quiet
+        fi
       fi
+
+      # Do not be fooled later by existing empty directories
+      rmdir "${UNPACK_DIR}"/*/* 2>/dev/null
     }
 
     ;;
