@@ -211,7 +211,7 @@ EOF
 		"https://gitlab.archlinux.org${path_mangle}" || \
 		warn "###    Error on ${pkg}-${ver}"
         # Increase if we hit rate limits
-        sleep 0.2
+        sleep 1
       done <"${PKG_LIST}"
 
       # If there are any EnOS packages listed, get/update that repo
