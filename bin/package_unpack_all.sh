@@ -22,6 +22,7 @@ DOWNLOAD_ONLY=0
 # Only used on rpm-based distros, but keep this up here
 # for visibility since it's a tunable knob.
 RPM_LIST=~/rpm_list
+FETCH_TIMEOUT=1800
 
 test -f /etc/os-release || die "Required /etc/os-release not found"
 
@@ -113,13 +114,18 @@ EOF
         :
       else
         local tarball="${repo_pkg_ver}.tar.bz2"
+
+        # Wrap unpacking in timeout(1) so that we do not wait forever
+        # for pathological downloads / git clones, see:
+        # https://bugs.gentoo.org/930633
+
         echo "echo '###   unpack ${COUNT}/${TOT} ${tarball}' && \
                 dfcheck "${PACKAGE_DIR}" "${UNPACK_DIR}" "${PKGBUILD_DIR}" && \
 		mkdir -p '${PKGBUILD_DIR}${repo}/' '${UNPACK_DIR}${repo_pkg_ver}/' && \
 		tar -C '${PKGBUILD_DIR}${repo}/' -xf '${PACKAGE_DIR}${tarball}' && \
 		cd '${PKGBUILD_DIR}${repo_pkg_ver}' && \
 		import_keys && \
-		BUILDDIR='${UNPACK_DIR}${repo_pkg_ver}' MAKEPKG_CONF='${HOME}/.package_unpack.conf' makepkg --nodeps --nobuild --noconfirm --noprogressbar"
+		BUILDDIR='${UNPACK_DIR}${repo_pkg_ver}' MAKEPKG_CONF='${HOME}/.package_unpack.conf' timeout -v --preserve-status ${FETCH_TIMEOUT} makepkg --nodeps --nobuild --noconfirm --noprogressbar"
       fi
     }
 
@@ -154,7 +160,7 @@ EOF
 	# Gitlab replaces : in paths with -
 	path_mangle="/archlinux/packaging/packages/${pkg}/-/archive/${ver}/${pkg}-${ver}.tar.bz2"
 	path_mangle="${path_mangle//:/-}"
-        curl -s -S -o "${PACKAGE_DIR}${outfile}" \
+        curl -s -S --max-time ${FETCH_TIMEOUT} -o "${PACKAGE_DIR}${outfile}" \
 		"https://gitlab.archlinux.org${path_mangle}" || \
 		warn "Error on ${pkg}-${ver}"
         # Increase if we hit rate limits
