@@ -27,6 +27,21 @@ case "$OS_ID" in
     die "Could not extract an ID= line from /etc/os-release"
     ;;
 
+  arch|endeavouros)
+    JOBS=$(sed -E -n 's/^MAKEFLAGS="[^"#]*-j ?([0-9]+).*/\1/p' /etc/makepkg.conf 2>/dev/null)
+    [[ -z $JOBS ]] && JOBS=$(grep -E '^processor.*: [0-9]+$' /proc/cpuinfo | wc -l)
+
+    UNPACK_DIR="${HOME}/pkgs/sources/"
+
+    make_dir_list()
+    {
+      # Arch package source trees are repo/pkg-ver/pkg/src/pkg-ver/
+      mapfile -d '' DIRS < <(find "${UNPACK_DIR}" -mindepth 5 -maxdepth 5 -type d -print0)
+      # Scan a single package (XXX: hardcoded; should be an arg or env var)
+      ##mapfile -d '' DIRS < <(find "${UNPACK_DIR}core/xz-5.6.1-3" -mindepth 3 -maxdepth 3 -type d -print0)
+    }
+    ;;
+
   debian|devuan|ubuntu)
     # XXX: is there an equivalent of MAKE_OPTS that sets a -j factor?
     JOBS=$(grep -E '^processor.*: [0-9]+$' /proc/cpuinfo | wc -l)
