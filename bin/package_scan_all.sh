@@ -162,7 +162,7 @@ do_dirs()
     # Identifiers used by stage2 to find extensions/stage3
     | (?: ~!:_\sW | \|_!\{\s- | jV!\.\^% | %\.R\.1Z )
     # I have no memory of this place
-    | if\s+ !\s+ echo\s+ "\$LDFLAGS"\s* |\s* grep\s+ [-a-z\s]+\s+ "-z(\s+ -Wl)?,now"\s+ .*\s* >\s* /dev/null
+    | if\s+ !\s+ echo\s+ "\$LDFLAGS"\s* \|\s* grep\s+ [-a-z\s]+\s+ "-z(\s+ -Wl)?,now"\s+ .*\s* >\s* /dev/null
     | if\s+ (!\s+ )?test\s+ -[a-z]\s+ "[^\s"]+ /tests/files/\$[^\s"]+ "\s* >\s*/dev/null
     | sed\s+ -i\s+ "/\$./i\$."\s+ src/[^\s]+/Makefile\s* \|\|\s* true
     }x
