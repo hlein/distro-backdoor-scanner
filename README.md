@@ -18,7 +18,7 @@ Distros supported:
 - Gentoo Linux: Works
 - Rocky/RHEL/CentOS Linux: Works
 - Debian/Devuan/Ubuntu Linux: Works
-- EndeavourOS/Arch: Todo, PRs welcome
+- EndeavourOS/Arch: Works
 
 ## Checking distfiles
 
@@ -30,10 +30,16 @@ These scripts unpack the source packages for all of a distro repo's
 current packages, then scan them for content similar to the malware
 that was added to `xz-utils`.
 
-Running over the unpacked source trees of ~19k Gentoo packages and
-~40k Debian packages gives a manageable amount of results (~hundreds
-of hits), digestable by a human. So far the only confirmed malicious
-results are... from the backdoored `xz-utils` versions.
+Have been run over:
+
+- ~11k EndeavourOS/Arch packages
+- ~40k Debian packages
+- ~19k Gentoo packages
+- ~9k Rocky/RPM packages
+
+This gives a manageable amount of results (~hundreds of hits),
+digestable by a human. So far the only confirmed malicious results
+are... from the backdoored `xz-utils` versions.
 
 ## Checking M4 macros
 
@@ -61,9 +67,11 @@ database of unknowns, so that package A's `new.m4` and package B's
 upstream and/or developer.
 
 Running over the source trees of ~19k Gentoo packages containing 50k
-`.m4` files finds about 8k that are unrecognized (new, or modified).
-That number should shrink if more popular upstreams are added to the
-"known good" corpus.
+`.m4` files finds about 5k that are unrecognized (new, or modified),
+with a little under 1k `git diff` commands to compare mismatches to
+a candidate upstream file. Note, the candidate selection in case of
+mismatch is pretty basic now; plan is to implement fuzzy matching, see
+https://github.com/hlein/distro-backdoor-scanner/issues/18
 
 ## Comparing decompression output
 

@@ -1,10 +1,6 @@
 # Current TODOs
 
-
 * `package_unpack_all.sh` &amp; `package_scan_all.sh`:
-
-  - Add Arch distro family
-    https://github.com/hlein/distro-backdoor-scanner/issues/20
 
   - Investigate packages that do not unpack successfully (per-distro)
 
