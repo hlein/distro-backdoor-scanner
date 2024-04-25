@@ -128,15 +128,24 @@ EOF
     pre_parallel_hook()
     {
       local outfile
-      local path_mangle
-      # Fetch every available distfile
+      local pkgbuild_count
+
+      # Progress bar... note we exclude endeavouros which we are
+      # skipping down in the loop.
+      pkgbuild_count=$(grep -E -v '^endeavouros\|' "${PKG_LIST}" | wc -l)
+      echo "### Fetching ${pkgbuild_count} pkgbuild repo tarballs"
+      local fetched=0
+
       while IFS='|' read -r repo pkg ver ; do
 
         # All EnOS packages live in their own single repo; handle separately.
         # XXX: Are there other Arch family distros that do similar?
         [[ $repo == "endeavouros" ]] && continue
 
-	outfile="${repo}/${pkg}-${ver}.tar.bz2"
+        [[ $(( ${fetched} % 1000 )) == 0 ]] && echo "###  Fetched ${fetched} / ${pkgbuild_count}"
+        let fetched=${fetched}+1
+
+        outfile="${repo}/${pkg}-${ver}.tar.bz2"
         [[ -f "${PACKAGE_DIR}${outfile}" ]] && continue
 
         dfcheck "${PACKAGE_DIR}" "${PKGBUILD_DIR}" "${UNPACK_DIR}" || exit 1
