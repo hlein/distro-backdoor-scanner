@@ -24,7 +24,21 @@ DOWNLOAD_ONLY=0
 RPM_LIST=~/rpm_list
 FETCH_TIMEOUT=1800
 
+# set VERBOSE to non-0: print more individual status messages
+: "${VERBOSE:=0}"
+
 test -f /etc/os-release || die "Required /etc/os-release not found"
+
+verbose()
+{
+  [[ -z ${VERBOSE} || ${VERBOSE} == "0" ]] && return
+  local line
+
+  for line in "$@" ; do
+    warn "${line}"
+  done
+}
+export -f verbose
 
 dfcheck()
 {
@@ -160,9 +174,12 @@ EOF
 	# Gitlab replaces : in paths with -
 	path_mangle="/archlinux/packaging/packages/${pkg}/-/archive/${ver}/${pkg}-${ver}.tar.bz2"
 	path_mangle="${path_mangle//:/-}"
+
+        verbose "###    Fetching 'https://gitlab.archlinux.org${path_mangle}' -> '${PACKAGE_DIR}${outfile}'"
+
         curl -s -S --max-time ${FETCH_TIMEOUT} -o "${PACKAGE_DIR}${outfile}" \
 		"https://gitlab.archlinux.org${path_mangle}" || \
-		warn "Error on ${pkg}-${ver}"
+		warn "###    Error on ${pkg}-${ver}"
         # Increase if we hit rate limits
         sleep 0.2
       done <"${PKG_LIST}"
