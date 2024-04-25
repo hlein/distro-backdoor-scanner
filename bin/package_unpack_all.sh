@@ -149,32 +149,42 @@ EOF
 
     make_pkg_cmd()
     {
-      local repo_pkg_ver pkg_mangle ver_mangle repo_pkg_ver_mangle
+      local repo_pkg_ver pkg_mangle pkg_unpack_dir ver_mangle repo_pkg_ver_mangle tarball
       IFS='|' read -r repo pkg ver <<< "${PKG}"
-      repo_pkg_ver="${repo}/${pkg}-${ver}"
+      repo_pkg="${repo}/${pkg}"
+      repo_pkg_ver="${repo_pkg}-${ver}"
       repo_pkg_ver_mangle="${repo}/$(gitlab_pkg_mangle "${pkg}")-$(gitlab_ver_mangle "${ver}")"
 
-      [[ -d "${UNPACK_DIR}${repo_pkg_ver_mangle}" ]] && return
 
       if [[ ${repo} == "endeavouros" ]]; then
-        # XXX: TODO
-        :
+        # EndeavourOS packages' PKGBUILD files will already be present
+        tarball=
+        pkg_unpack_dir="${UNPACK_DIR}${repo_pkg}"
+        pkg_build_dir="${PKGBUILD_DIR}${repo}/${pkg}"
+
+        # Some EndeavourOS packages can't be resolved, skip silently
+        # https://github.com/endeavouros-team/PKGBUILDS/issues/335
+        [[ -d "${pkg_build_dir}" ]] || return
       else
-        local tarball="${repo_pkg_ver}.tar.bz2"
-
-        # Wrap unpacking in timeout(1) so that we do not wait forever
-        # for pathological downloads / git clones, see:
-        # https://bugs.gentoo.org/930633
-
-        echo "echo '###   unpack ${COUNT}/${TOT} ${tarball}' && \
-		dfcheck "${PACKAGE_DIR}" "${UNPACK_DIR}" "${PKGBUILD_DIR}" && \
-		mkdir -p '${PKGBUILD_DIR}${repo}/' '${UNPACK_DIR}${repo_pkg_ver_mangle}/' && \
-		tar -C '${PKGBUILD_DIR}${repo}/' -xf '${PACKAGE_DIR}${tarball}' && \
-		cd '${PKGBUILD_DIR}${repo_pkg_ver_mangle}' && \
-		import_keys && \
-		BUILDDIR='${UNPACK_DIR}${repo_pkg_ver_mangle}' MAKEPKG_CONF='${HOME}/.package_unpack.conf' timeout -v --preserve-status ${FETCH_TIMEOUT} makepkg --nodeps --nobuild --noconfirm --noprogressbar || \
-		die '###   unpack failed ${COUNT}/${TOT} ${tarball}'"
+        tarball="${repo_pkg_ver}.tar.bz2"
+        pkg_unpack_dir="${UNPACK_DIR}${repo_pkg_ver_mangle}"
+        pkg_build_dir="${PKGBUILD_DIR}${repo_pkg_ver_mangle}"
       fi
+      [[ -d "${pkg_unpack_dir}" ]] && return
+
+      # Wrap unpacking in timeout(1) so that we do not wait forever
+      # for pathological downloads / git clones, see:
+      # https://bugs.gentoo.org/930633
+
+      echo "echo '###   unpack ${COUNT}/${TOT} ${tarball}' && \
+		dfcheck "${PACKAGE_DIR}" "${UNPACK_DIR}" "${PKGBUILD_DIR}" && \
+		mkdir -p '${PKGBUILD_DIR}${repo}/' '${pkg_unpack_dir}/' && \
+		[[ -z '${tarball}' ]] || \
+			tar -C '${PKGBUILD_DIR}${repo}/' -xf '${PACKAGE_DIR}${tarball}' && \
+		cd '${pkg_build_dir}' && \
+		import_keys && \
+		BUILDDIR='${pkg_unpack_dir}' MAKEPKG_CONF='${HOME}/.package_unpack.conf' timeout -v --preserve-status ${FETCH_TIMEOUT} makepkg --nodeps --nobuild --noconfirm --noprogressbar || \
+		die '###   unpack failed ${COUNT}/${TOT} ${repo_pkg_ver} ${tarball}'"
     }
 
     # We need to fetch individual pkgbuild repos from Arch before
@@ -221,6 +231,7 @@ EOF
 
       # If there are any EnOS packages listed, get/update that repo
       if grep -q -l '^endeavouros\|' "${PKG_LIST}" ; then
+        mkdir -p "${PKGBUILD_DIR}/endeavouros"
         if [[ ! -d "${PKGBUILD_DIR}/endeavouros/.git" ]]; then
           git -C "${PKGBUILD_DIR}" clone --quiet https://github.com/endeavouros-team/PKGBUILDS endeavouros
         else
