@@ -68,8 +68,10 @@ case "${OS_ID}" in
     ;;
 
   arch|endeavouros)
-    COMMANDS+="antlr4 cargo cmake composer curl electron28 expac filterdiff gen-setup gendesk gnome-autogen.sh go gtkdocize intltoolize makepkg mate-autogen meson mlyacc npm opam pacman pipenv_to_requirements rustc setconf signify svn timeout uusi yarn yelp-build"
+    COMMANDS+="antlr4 cargo cmake curl electron28 expac filterdiff gen-setup gendesk gnome-autogen.sh go gtkdocize intltoolize makepkg mate-autogen meson mlyacc npm opam pacman pipenv_to_requirements rustc setconf signify svn timeout uusi yarn yelp-build"
     # pacman -S $(pacman -Fq ... | sort -u | egrep -v '^extra/(nodejs-|go)')
+    # Consistantly 404's for me:
+    #COMMANDS+=" composer "
 
     PACKAGE_DIR="${HOME}/pkgs/distfiles/"
     PKGBUILD_DIR="${HOME}/pkgs/pkgbuild/"
