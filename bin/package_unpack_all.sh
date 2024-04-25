@@ -78,6 +78,9 @@ case "${OS_ID}" in
     UNPACK_DIR="${HOME}/pkgs/sources/"
     LOG_DIR="${HOME}/pkgs/logs/"
 
+    JOBS=$(sed -E -n 's/^MAKEFLAGS="[^"#]*-j ?([0-9]+).*/\1/p' /etc/makepkg.conf 2>/dev/null)
+    [[ -z $JOBS ]] && JOBS=$(grep -E '^processor.*: [0-9]+$' /proc/cpuinfo | wc -l)
+
     # XXX: is there an equivalent of MAKE_OPTS that sets a -j factor?
     JOBS=$(grep -E '^processor.*: [0-9]+$' /proc/cpuinfo | wc -l)
 
@@ -264,6 +267,8 @@ EOF
   gentoo)
     COMMANDS+="ebuild portageq"
     JOBS=$(sed -E -n 's/^MAKEOPTS="[^"#]*-j ?([0-9]+).*/\1/p' /etc/portage/make.conf 2>/dev/null)
+    [[ -z $JOBS ]] && JOBS=$(grep -E '^processor.*: [0-9]+$' /proc/cpuinfo | wc -l)
+
     for D in $(portageq get_repo_path "${EROOT:-/}" gentoo) /usr/portage/ /var/db/repos/gentoo/ ; do
       test -d "${D}" && PACKAGE_DIR="${D}" && break
     done
