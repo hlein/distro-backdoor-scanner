@@ -395,6 +395,7 @@ EOF
     if [[ -n ${max_serial_seen_query} ]] ; then
       print_diff_cmd() {
         local cmd=$1
+        local reason=$2
 
         IFS='|' read -ra parsed_results <<< "${max_serial_seen_query}"
         expected_repository=${parsed_results[5]}
@@ -402,7 +403,7 @@ EOF
         expected_gitpath=${parsed_results[7]}
         verbose ${cmd} "diff using:"$'\n\t'"git diff --no-index <(git -C ${expected_repository} show '${expected_gitcommit}:${expected_gitpath}') '${file}'"
 
-        DIFF_CMDS+=( "git diff --no-index <(git -C ${expected_repository} show '${expected_gitcommit}:${expected_gitpath}') '${file}' # discontinuity" )
+        DIFF_CMDS+=( "git diff --no-index <(git -C ${expected_repository} show '${expected_gitcommit}:${expected_gitpath}') '${file}' # ${reason}" )
         # We don't want to emit loads of diff commands for the same thing
         bad_checksums[${plain_checksum}]=1
         bad_checksums[${strip_checksum}]=1
@@ -426,22 +427,22 @@ EOF
       if [[ ${delta} -lt -10 ]] ; then
         BAD_SERIAL_MACROS+=( "${filename}" )
 
-        eerror "$(printf "Large serial delta found in %s!\n" "${filename}")"
+        eerror "$(printf "Large serial delta found in %s!\n" "${project_filepath}")"
         verbose eerror \
 		      "$(printf "full path: %s" "${file}")" $'\n' \
 		      "$(printf "serial=%s" "${serial}")" $'\n' \
 		      "$(printf "max_serial_seen=%s" "${max_serial_seen}")" $'\n' \
 		      "$(printf "delta=%s" "${absolute_delta}")" $'\n'
-        print_diff_cmd eerror
+        print_diff_cmd eerror "serialjump"
       elif [[ ${delta} -lt 0 ]] ; then
         NEW_SERIAL_MACROS+=( "${filename}" )
 
-        ewarn "$(printf "Newer macro serial found in %s\n" "${filename}")"
+        ewarn "$(printf "Newer macro serial found in %s\n" "${project_filepath}")"
         verbose ewarn \
           "$(printf "serial=%s" "${serial}")" $'\n' \
 		      "$(printf "max_serial_seen=%s" "${max_serial_seen}")" $'\n' \
 		      "$(printf "absolute_delta=%s" "${absolute_delta}")" $'\n'
-        print_diff_cmd ewarn
+        print_diff_cmd ewarn "serialinc"
       fi
     fi
 
