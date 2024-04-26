@@ -15,6 +15,10 @@ COMMANDS="parallel perl xargs"
 BATCH_SIZE=50
 BATCH_NUM=0
 
+# set DEBUG to non-0: print more individual status messages
+: "${DEBUG:=0}"
+export DEBUG
+
 test -f /etc/os-release || die "Required /etc/os-release not found"
 
 # Various locations, commands, etc. differ by distro
