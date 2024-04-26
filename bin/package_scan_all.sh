@@ -117,8 +117,10 @@ do_dirs()
   ##NAMEARG='-name CMakeLists.txt'
   find "$@" -type f $NAMEARG -print0 | xargs -0 perl -ne '
   # Note: perl -n mode eats trailing spaces in filenames;
-  # trying to escape by rewriting ARGV in BEGIN does not work,
-  # so we expect handfuls of failures opening perfectly good paths.
+  # trying to escape by rewriting ARGV in BEGIN does not work.
+  # So we expect handfuls of failures opening perfectly good paths
+  # from tools with files ending in space (all appear to be test
+  # files to make sure the tools handle such cases well!)
   BEGIN { $files_done=0; };
   if
    (
